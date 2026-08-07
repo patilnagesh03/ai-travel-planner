@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+myenv/
+.env
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Migrations (optional)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Environment
+.env.*
+
+# Node (if frontend is inside same repo)
+node_modules/
+
+# Build
+dist/
+build/
