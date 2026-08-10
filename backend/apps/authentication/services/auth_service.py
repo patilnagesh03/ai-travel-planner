@@ -1,5 +1,5 @@
 from backend.apps.accounts.models import User
-
+from backend.apps.authentication.services.jwt_service import JWTService
 
 class AuthService:
 
@@ -16,3 +16,12 @@ class AuthService:
         )
 
         return user
+
+    @staticmethod
+    def login(user):
+        tokens = JWTService.generate_tokens(user)
+
+        return {
+            "user": user,
+            "tokens": tokens,
+        }
