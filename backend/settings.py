@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     #Local apps
     'backend.apps.accounts',
     'backend.apps.authentication',
+    'backend.apps.trips',
 ]
 
 MIDDLEWARE = [
