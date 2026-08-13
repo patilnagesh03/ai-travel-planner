@@ -21,3 +21,35 @@ class TripService:
             .filter(user=user)
             .order_by("-created_at")
         )
+
+    @staticmethod
+    def get_trip(user, trip_id):
+        return Trip.objects.get(
+            id=trip_id,
+            user=user,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def update_trip(user, trip_id, validated_data):
+        trip = Trip.objects.get(
+            id=trip_id,
+            user=user,
+        )
+
+        for field, value in validated_data.items():
+            setattr(trip, field, value)
+
+        trip.save()
+
+        return trip
+
+    @staticmethod
+    @transaction.atomic
+    def delete_trip(user, trip_id):
+        trip = Trip.objects.get(
+            id=trip_id,
+            user=user,
+        )
+
+        trip.delete()
