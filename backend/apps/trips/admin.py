@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from backend.apps.trips.models import Trip
+from backend.apps.trips.models.trip_models import Trip
 
 
 @admin.register(Trip)

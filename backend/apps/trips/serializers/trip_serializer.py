@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from backend.apps.trips.models import Trip
+from backend.apps.trips.models.trip_models import Trip
 from backend.apps.trips.validators import (
     validate_budget,
     validate_currency,

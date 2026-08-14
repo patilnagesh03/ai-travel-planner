@@ -1,5 +1,5 @@
 from django.db import transaction
-from backend.apps.trips.models import Trip
+from backend.apps.trips.models.trip_models import Trip
 
 
 class TripService:
