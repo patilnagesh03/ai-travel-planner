@@ -22,7 +22,7 @@ class TripDetailView(APIView):
     def get(self, request, trip_id):
 
         try:
-            trip = TripService.get_trip(
+            trip = TripService.get_user_trip(
                 user=request.user,
                 trip_id=trip_id,
             )
@@ -66,7 +66,7 @@ class TripDetailView(APIView):
     def patch(self, request, trip_id):
 
         try:
-            trip = TripService.get_trip(
+            trip = TripService.get_user_trip(
                 user=request.user,
                 trip_id=trip_id,
             )

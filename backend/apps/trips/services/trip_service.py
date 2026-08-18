@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from backend.apps.trips.models.trip_models import Trip
 
 
@@ -23,8 +24,9 @@ class TripService:
         )
 
     @staticmethod
-    def get_trip(user, trip_id):
-        return Trip.objects.get(
+    def get_user_trip(user, trip_id):
+        return get_object_or_404(
+            Trip,
             id=trip_id,
             user=user,
         )
