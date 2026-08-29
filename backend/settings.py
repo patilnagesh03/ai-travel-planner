@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'backend.apps.accounts',
     'backend.apps.authentication',
     'backend.apps.trips',
+    'backend.apps.itinerary',
 ]
 
 MIDDLEWARE = [
