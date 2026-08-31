@@ -28,7 +28,7 @@ class ItinerarySerializer(serializers.ModelSerializer):
 
         if not value:
             raise serializers.ValidationError(
-                "Title cannot be empty."
+                "Itinerary title cannot be empty."
             )
 
         return value

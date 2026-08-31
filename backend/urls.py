@@ -29,4 +29,9 @@ urlpatterns = [
         "api/v1/trips/",
         include("backend.apps.trips.urls"),
     ),
+
+    path(
+        "api/v1/",
+        include("backend.apps.itinerary.urls"),
+    ),
 ]
