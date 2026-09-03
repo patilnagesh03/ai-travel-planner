@@ -1,5 +1,5 @@
 import logging
-
+from django.http import Http404
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -115,5 +115,71 @@ class ItineraryView(APIView):
                         "the itinerary."
                     ),
                 },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+    def patch(self, request, trip_id):
+        itinerary = ItineraryService.get_itinerary(
+            user=request.user,
+            trip_id=trip_id,
+        )
+
+        serializer = ItinerarySerializer(
+            itinerary,
+            data=request.data,
+            partial=True,
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_itinerary = ItineraryService.update_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+                validated_data=serializer.validated_data,
+            )
+
+            response_serializer = ItinerarySerializer(
+                updated_itinerary
+            )
+
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while updating itinerary."
+            )
+
+            return Response(
+                {"detail": "Something went wrong."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+    def delete(self, request, trip_id):
+        try:
+            ItineraryService.delete_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+            )
+
+            return Response(
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        
+        except Http404:
+            raise
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while deleting itinerary."
+            )
+
+            return Response(
+                {"detail": "Something went wrong."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

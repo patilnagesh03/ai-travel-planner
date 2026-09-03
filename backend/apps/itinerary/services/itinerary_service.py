@@ -41,3 +41,42 @@ class ItineraryService:
             Itinerary,
             trip=trip,
         )
+
+
+    @staticmethod
+    @transaction.atomic
+    def update_itinerary(user, trip_id, validated_data):
+        trip = get_object_or_404(
+            Trip,
+            id=trip_id,
+            user=user,
+        )
+
+        itinerary = get_object_or_404(
+            Itinerary,
+            trip=trip,
+        )
+
+        for field, value in validated_data.items():
+            setattr(itinerary, field, value)
+
+        itinerary.save()
+
+        return itinerary
+
+
+    @staticmethod
+    @transaction.atomic
+    def delete_itinerary(user, trip_id):
+        trip = get_object_or_404(
+            Trip,
+            id=trip_id,
+            user=user,
+        )
+
+        itinerary = get_object_or_404(
+            Itinerary,
+            trip=trip,
+        )
+
+        itinerary.delete()
