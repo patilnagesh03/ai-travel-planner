@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from backend.apps.itinerary.enums import ActivityType
 from backend.apps.itinerary.models import ItineraryItem
 
@@ -79,17 +80,13 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
         if value is None:
             return value
 
-        value = value.strip()
-
-        return value
+        return value.strip()
 
     def validate_location_address(self, value):
         if value is None:
             return value
 
-        value = value.strip()
-
-        return value
+        return value.strip()
 
     def validate_latitude(self, value):
         if value is not None and not (-90 <= value <= 90):
@@ -107,34 +104,34 @@ class ItineraryItemSerializer(serializers.ModelSerializer):
 
         return value
 
+    def validate_order(self, value):
+        if value < 1:
+            raise serializers.ValidationError(
+                "Order must be at least 1."
+            )
+
+        return value
+
     def validate(self, attrs):
+        date = attrs.get(
+            "date",
+            self.instance.date if self.instance else None,
+        )
 
-        date = attrs.get("date")
+        start_time = attrs.get(
+            "start_time",
+            self.instance.start_time if self.instance else None,
+        )
 
-        start_time = attrs.get("start_time")
-        end_time = attrs.get("end_time")
-
-        # Handle PATCH correctly.
-        if self.instance:
-            date = attrs.get(
-                "date",
-                self.instance.date,
-            )
-
-            start_time = attrs.get(
-                "start_time",
-                self.instance.start_time,
-            )
-
-            end_time = attrs.get(
-                "end_time",
-                self.instance.end_time,
-            )
+        end_time = attrs.get(
+            "end_time",
+            self.instance.end_time if self.instance else None,
+        )
 
         # Validate time range.
         if (
-            start_time
-            and end_time
+            start_time is not None
+            and end_time is not None
             and end_time < start_time
         ):
             raise serializers.ValidationError(
