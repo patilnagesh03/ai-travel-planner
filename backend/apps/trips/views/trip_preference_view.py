@@ -1,5 +1,6 @@
 import logging
 
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
@@ -72,6 +73,15 @@ class TripPreferenceView(APIView):
                 status=status.HTTP_201_CREATED,
             )
 
+        except Http404:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Trip not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         except ValidationError:
             raise
 
@@ -119,6 +129,15 @@ class TripPreferenceView(APIView):
                     "data": serializer.data,
                 },
                 status=status.HTTP_200_OK,
+            )
+
+        except Http404:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Trip not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         except TripPreference.DoesNotExist:
@@ -193,6 +212,15 @@ class TripPreferenceView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+        except Http404:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Trip not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         except TripPreference.DoesNotExist:
             return Response(
                 {
@@ -242,6 +270,15 @@ class TripPreferenceView(APIView):
 
             return Response(
                 status=status.HTTP_204_NO_CONTENT,
+            )
+
+        except Http404:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Trip not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         except TripPreference.DoesNotExist:

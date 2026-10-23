@@ -34,4 +34,14 @@ urlpatterns = [
         "api/v1/",
         include("backend.apps.itinerary.urls"),
     ),
+
+    path(
+        "api/v1/",
+        include("backend.apps.integrations.urls"),
+    ),
+
+    path(
+        "api/v1/",
+        include("backend.apps.ai.urls"),
+    ),
 ]

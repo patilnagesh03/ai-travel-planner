@@ -62,6 +62,11 @@ class ItineraryView(APIView):
         except ValidationError:
             raise
 
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
+
         except Exception:
             logger.exception(
                 "Unexpected error while creating itinerary."
@@ -101,6 +106,11 @@ class ItineraryView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
 
         except Exception:
             logger.exception(
@@ -148,6 +158,11 @@ class ItineraryView(APIView):
                 response_serializer.data,
                 status=status.HTTP_200_OK,
             )
+
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
 
         except Exception:
             logger.exception(

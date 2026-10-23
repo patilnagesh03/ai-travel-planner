@@ -1,5 +1,7 @@
 import logging
 
+from django.http import Http404
+
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -38,7 +40,7 @@ class TripDetailView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        except Trip.DoesNotExist:
+        except (Http404, Trip.DoesNotExist):
             return Response(
                 {
                     "success": False,
@@ -98,7 +100,7 @@ class TripDetailView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        except Trip.DoesNotExist:
+        except (Http404, Trip.DoesNotExist):
             return Response(
                 {
                     "success": False,
@@ -138,7 +140,7 @@ class TripDetailView(APIView):
                 status=status.HTTP_204_NO_CONTENT,
             )
 
-        except Trip.DoesNotExist:
+        except (Http404, Trip.DoesNotExist):
             return Response(
                 {
                     "success": False,

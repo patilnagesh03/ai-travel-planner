@@ -1,6 +1,8 @@
 import logging
 
 from django.db import IntegrityError
+from django.http import Http404
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -32,6 +34,11 @@ class ItineraryItemListCreateView(APIView):
                 serializer.data,
                 status=status.HTTP_200_OK,
             )
+
+        except Http404:
+            # A missing itinerary. Re-raised so that DRF turns it into a
+            # proper 404 response instead of a generic 500.
+            raise
 
         except Exception:
             logger.exception(
@@ -71,6 +78,11 @@ class ItineraryItemListCreateView(APIView):
                 response_serializer.data,
                 status=status.HTTP_201_CREATED,
             )
+
+        except Http404:
+            # A missing itinerary. Re-raised so that DRF turns it into a
+            # proper 404 response instead of a generic 500.
+            raise
 
         except IntegrityError:
             return Response(
@@ -134,6 +146,11 @@ class ItineraryItemDetailView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+        except Http404:
+            # A missing itinerary or item. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
+
         except IntegrityError:
             return Response(
                 {
@@ -166,6 +183,11 @@ class ItineraryItemDetailView(APIView):
             return Response(
                 status=status.HTTP_204_NO_CONTENT,
             )
+
+        except Http404:
+            # A missing itinerary or item. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
 
         except Exception:
             logger.exception(

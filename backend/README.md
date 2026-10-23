@@ -29,6 +29,8 @@ The application leverages Artificial Intelligence along with external services s
 * Budget-based Recommendations
 * Interest-based Suggestions
 * Travel Tips
+* Generated locally with Ollama (no API key, no cost, no data leaves the machine)
+* See `backend/apps/ai/README.md`
 
 ### Travel Information
 
@@ -36,6 +38,13 @@ The application leverages Artificial Intelligence along with external services s
 * Currency Conversion
 * Nearby Places
 * Maps Integration
+
+### Place Discovery (implemented)
+
+* Search places by destination name (curated India-first city list)
+* Search places by latitude / longitude, as an override
+* Normalized place data from OpenStreetMap via the Overpass API
+* Category filtering, result limits and rate-limit aware error handling
 
 ### Future Enhancements
 
@@ -72,12 +81,11 @@ The application leverages Artificial Intelligence along with external services s
 
 * Ollama (Local LLM)
 * OpenAI (Optional)
-
 ## External APIs
 
 * Weather API
 * Currency Exchange API
-* OpenStreetMap
+* OpenStreetMap (Overpass API) — implemented, see `backend/apps/integrations/README.md`
 * Geocoding API
 * Places API
 
@@ -105,7 +113,8 @@ backend/
 │   ├── accounts/
 │   ├── trips/
 │   ├── itinerary/
-│   ├── ai/
+│   ├── integrations/        # OpenStreetMap / Overpass places
+│   ├── ai/                  # Ollama itinerary generation
 │   ├── external_services/
 │   └── common/
 │

@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'backend.apps.authentication',
     'backend.apps.trips',
     'backend.apps.itinerary',
+    'backend.apps.integrations',
+    'backend.apps.ai',
 ]
 
 MIDDLEWARE = [
@@ -155,3 +157,130 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+
+# ==========================================================================
+# External Integrations
+# ==========================================================================
+# OpenStreetMap / Overpass API.
+#
+# The Overpass usage policy asks every client to identify itself with a
+# meaningful User-Agent that offers a way to reach the operator. Replace the
+# default below with a contact address you control.
+
+OVERPASS_API_URL = config(
+    "OVERPASS_API_URL",
+    default="https://overpass-api.de/api/interpreter",
+)
+
+# Client-side transport timeouts (seconds) applied by `requests`.
+OVERPASS_CONNECT_TIMEOUT = config(
+    "OVERPASS_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+OVERPASS_READ_TIMEOUT = config(
+    "OVERPASS_READ_TIMEOUT",
+    cast=int,
+    default=30,
+)
+
+# Server-side query budget (seconds) embedded in the Overpass query itself.
+OVERPASS_QUERY_TIMEOUT = config(
+    "OVERPASS_QUERY_TIMEOUT",
+    cast=int,
+    default=20,
+)
+
+# Upper bound on the number of places returned by a single search.
+MAX_PLACES_PER_SEARCH = config(
+    "MAX_PLACES_PER_SEARCH",
+    cast=int,
+    default=20,
+)
+
+# Force the IPv4 address family when talking to the Overpass provider.
+#
+# Some networks publish IPv6 addresses for a host but cannot route IPv6
+# traffic, which makes every request hang until it times out. Turning this
+# on works around that. It is off by default because forcing IPv4 would
+# break a network that is genuinely IPv6-only.
+OVERPASS_IPV4_ONLY = config(
+    "OVERPASS_IPV4_ONLY",
+    cast=bool,
+    default=False,
+)
+
+INTEGRATIONS_USER_AGENT = config(
+    "INTEGRATIONS_USER_AGENT",
+    default=(
+        "AITravelPlanner/1.0 "
+        "(nageshpatil7311@gmail.com)"
+    ),
+)
+
+
+# ==========================================================================
+# Caching
+# ==========================================================================
+# Django's built-in LocMemCache. It needs no extra service, so there is no
+# Redis in this project.
+#
+# Note that LocMemCache is *per process*: with several workers each worker
+# keeps its own copy of the cache. That is perfectly fine for reducing the
+# load we put on shared public infrastructure, it just means the hit rate
+# is lower than a shared cache would give.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ai-travel-planner",
+    }
+}
+
+# How long (seconds) a place search result is reused before the provider is
+# called again. Set to 0 to disable caching entirely.
+PLACES_CACHE_TIMEOUT = config(
+    "PLACES_CACHE_TIMEOUT",
+    cast=int,
+    default=600,
+)
+
+
+# ==========================================================================
+# AI Configuration
+# ==========================================================================
+# Ollama runs the model locally, so there is no API key and no cost.
+#
+# The generation timeout is deliberately much larger than the place search
+# timeouts. Asking a local model to plan a multi-day trip takes far longer
+# than asking Overpass for a list of nearby places, and the two budgets have
+# nothing to do with each other.
+
+AI_PROVIDER = config(
+    "AI_PROVIDER",
+    default="ollama",
+)
+
+OLLAMA_BASE_URL = config(
+    "OLLAMA_BASE_URL",
+    default="http://localhost:11434",
+)
+
+OLLAMA_MODEL = config(
+    "OLLAMA_MODEL",
+    default="llama3.1",
+)
+
+OLLAMA_TIMEOUT = config(
+    "OLLAMA_TIMEOUT",
+    cast=int,
+    default=120,
+)
+
+# Lower values give more predictable, more conservative itineraries.
+OLLAMA_TEMPERATURE = config(
+    "OLLAMA_TEMPERATURE",
+    cast=float,
+    default=0.4,
+)

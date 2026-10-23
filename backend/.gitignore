@@ -35,6 +35,7 @@ htmlcov/
 
 # Environment
 .env.*
+!.env.example
 
 # Node (if frontend is inside same repo)
 node_modules/
