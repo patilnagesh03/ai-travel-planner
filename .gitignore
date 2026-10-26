@@ -1,0 +1,45 @@
+# ==========================================================================
+# Repository-root ignores
+# ==========================================================================
+# backend/.gitignore covers everything inside the Django project. These
+# patterns cover artefacts that are created at the repository root, which
+# that file cannot reach.
+
+# Virtual environment
+myenv/
+.venv/
+
+# Environment files (keep the template)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Databases. This project uses PostgreSQL; a stray SQLite file is never
+# part of the source tree.
+*.sqlite3
+db.sqlite3
+
+# User uploads and collected static files
+media/
+staticfiles/
+profile_pictures/
+
+# Logs
+*.log
+logs/
+
+# Frontend (built next to the backend)
+node_modules/
+dist/
+build/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

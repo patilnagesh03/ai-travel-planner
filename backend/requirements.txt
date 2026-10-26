@@ -6,4 +6,3 @@ python-decouple==3.8
 requests==2.32.4
 Pillow==11.3.0
 django-cors-headers==4.7.0
-drf-yasg==1.21.10

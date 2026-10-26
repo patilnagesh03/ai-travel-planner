@@ -15,20 +15,36 @@ from datetime import timedelta
 
 from decouple import config
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+from backend.environment import (
+    resolve_allowed_hosts,
+    resolve_cors_origins,
+    resolve_secret_key,
+)
+
+# The Django project directory (the `backend` package). The environment
+# file, uploaded media and collected static files all live here, next to
+# this file, rather than at the repository root.
+BASE_DIR = Path(__file__).resolve().parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# ==========================================================================
+# Core settings
+# ==========================================================================
+# Every value below can be overridden from the environment (or from
+# backend/.env). The defaults are the safe ones: DEBUG is off unless asked
+# for, and a production start refuses to run without a real secret key.
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ys3m^x$e2iz!29_sw9od$c3g_p1bzo9vvqi*q=o&hy=$6zy#ef'
+DEBUG = config("DEBUG", cast=bool, default=False)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = resolve_secret_key(
+    config("SECRET_KEY", default=""),
+    debug=DEBUG,
+)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = resolve_allowed_hosts(
+    config("ALLOWED_HOSTS", default=""),
+    debug=DEBUG,
+)
 
 
 # Application definition
@@ -42,6 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Third-party apps
+    "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -57,6 +74,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Must sit above CommonMiddleware so CORS headers are added to every
+    # response, including the ones other middleware generate.
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -131,10 +151,46 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# ==========================================================================
+# Static and media files
+# ==========================================================================
+# `static/` holds files that ship with the project. `staticfiles/` is where
+# `collectstatic` gathers them for production to serve. `media/` holds user
+# uploads (profile pictures) and is never committed.
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_DIRS = [
+    directory
+    for directory in [BASE_DIR / "static"]
+    if directory.is_dir()
+]
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ==========================================================================
+# CORS
+# ==========================================================================
+# The React frontend is served from a different origin, so the API has to
+# name it explicitly. There is deliberately no wildcard option: allowing
+# every origin would let any website call this API from a visitor's browser.
+
+CORS_ALLOWED_ORIGINS = resolve_cors_origins(
+    config(
+        "CORS_ALLOWED_ORIGINS",
+        default=config("FRONTEND_URL", default=""),
+    ),
+    debug=DEBUG,
+)
+
+CORS_ALLOW_CREDENTIALS = config(
+    "CORS_ALLOW_CREDENTIALS",
+    cast=bool,
+    default=False,
+)
 
 AUTH_USER_MODEL = "accounts.User"
 

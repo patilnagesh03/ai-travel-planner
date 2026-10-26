@@ -253,20 +253,39 @@ http://127.0.0.1:8000/
 
 # 🔒 Environment Variables
 
-Configure the following variables inside the `.env` file:
+Copy `backend/.env.example` to `backend/.env` and fill it in. The project
+reads configuration with `python-decouple`, so nothing has to be exported
+by hand.
 
-* `SECRET_KEY`
-* `DEBUG`
-* `ALLOWED_HOSTS`
+## Required
+
+* `SECRET_KEY` — **required when `DEBUG=False`.** The project refuses to
+  start without it, and rejects placeholder or `django-insecure-` values.
+  Generate one with:
+  `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
 * `DB_NAME`
 * `DB_USER`
 * `DB_PASSWORD`
 * `DB_HOST`
 * `DB_PORT`
-* `WEATHER_API_KEY`
-* `CURRENCY_API_KEY`
-* `OPENAI_API_KEY`
-* `OLLAMA_BASE_URL`
+
+## Common
+
+* `DEBUG` — defaults to `False`; set `True` for local development.
+* `ALLOWED_HOSTS` — comma separated. Required when `DEBUG=False`.
+* `CORS_ALLOWED_ORIGINS` — comma separated browser origins allowed to call
+  the API (no wildcard). Falls back to `FRONTEND_URL`.
+* `FRONTEND_URL` — the frontend origin, used for CORS when
+  `CORS_ALLOWED_ORIGINS` is unset.
+* `ACCESS_TOKEN_LIFETIME`, `REFRESH_TOKEN_LIFETIME`
+
+## Integrations and AI
+
+* `OVERPASS_*`, `MAX_PLACES_PER_SEARCH`, `INTEGRATIONS_USER_AGENT`
+* `AI_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`,
+  `OLLAMA_TEMPERATURE`
+
+`backend/.env` is ignored by git; only `backend/.env.example` is committed.
 
 ---
 
