@@ -19,12 +19,20 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
+from backend.apps.trips.views.interest_view import InterestListView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     
     path(
         'api/auth/', 
         include("backend.apps.authentication.urls")
+    ),
+
+    path(
+        "api/v1/interests/",
+        InterestListView.as_view(),
+        name="interest-list",
     ),
 
      path(
