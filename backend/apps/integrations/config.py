@@ -44,6 +44,41 @@ PLACES_CACHE_TIMEOUT = settings.PLACES_CACHE_TIMEOUT
 OVERPASS_IPV4_ONLY = settings.OVERPASS_IPV4_ONLY
 
 
+# --------------------------------------------------------------------------
+# Weather (Open-Meteo)
+# --------------------------------------------------------------------------
+# Open-Meteo needs no API key and no account, and it publishes at most 16
+# days of daily forecast. ``WEATHER_FORECAST_DAYS`` is therefore both our
+# window and the provider's limit.
+WEATHER_API_URL = settings.WEATHER_API_URL
+
+WEATHER_CONNECT_TIMEOUT = settings.WEATHER_CONNECT_TIMEOUT
+
+WEATHER_READ_TIMEOUT = settings.WEATHER_READ_TIMEOUT
+
+WEATHER_FORECAST_DAYS = settings.WEATHER_FORECAST_DAYS
+
+# 0 disables caching entirely.
+WEATHER_CACHE_TIMEOUT = settings.WEATHER_CACHE_TIMEOUT
+
+
+# --------------------------------------------------------------------------
+# Currency (Frankfurter)
+# --------------------------------------------------------------------------
+# Frankfurter publishes European Central Bank reference rates and needs no
+# key. Rates change once per working day, so an hour of caching is plenty.
+CURRENCY_API_URL = settings.CURRENCY_API_URL
+
+CURRENCY_CONNECT_TIMEOUT = settings.CURRENCY_CONNECT_TIMEOUT
+
+CURRENCY_READ_TIMEOUT = settings.CURRENCY_READ_TIMEOUT
+
+CURRENCY_CACHE_TIMEOUT = settings.CURRENCY_CACHE_TIMEOUT
+
+# Upper bound on how many currencies one request may ask for.
+MAX_CURRENCY_SYMBOLS = settings.MAX_CURRENCY_SYMBOLS
+
+
 __all__ = [
     "OVERPASS_API_URL",
     "OVERPASS_CONNECT_TIMEOUT",
@@ -53,4 +88,14 @@ __all__ = [
     "INTEGRATIONS_USER_AGENT",
     "PLACES_CACHE_TIMEOUT",
     "OVERPASS_IPV4_ONLY",
+    "WEATHER_API_URL",
+    "WEATHER_CONNECT_TIMEOUT",
+    "WEATHER_READ_TIMEOUT",
+    "WEATHER_FORECAST_DAYS",
+    "WEATHER_CACHE_TIMEOUT",
+    "CURRENCY_API_URL",
+    "CURRENCY_CONNECT_TIMEOUT",
+    "CURRENCY_READ_TIMEOUT",
+    "CURRENCY_CACHE_TIMEOUT",
+    "MAX_CURRENCY_SYMBOLS",
 ]

@@ -154,8 +154,13 @@ class DestinationService:
         )
 
     @staticmethod
-    def bounding_box_from_destination(destination):
-        """Return the bounding box of a curated city."""
+    def resolve_city(destination):
+        """Return the `City` for a destination, or raise a clear error.
+
+        Used by every feature that needs a destination's coordinates
+        (place search, forecast, map), so they all report an unsupported
+        destination the same way.
+        """
 
         city = DestinationService.find_city(destination)
 
@@ -169,6 +174,14 @@ class DestinationService:
                     count=len(INDIA_CITIES),
                 )
             )
+
+        return city
+
+    @staticmethod
+    def bounding_box_from_destination(destination):
+        """Return the bounding box of a curated city."""
+
+        city = DestinationService.resolve_city(destination)
 
         return BoundingBox(
             south=city.south,

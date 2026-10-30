@@ -44,6 +44,14 @@ class UnsupportedDestinationError(IntegrationsError):
     """
 
 
+class UnsupportedCurrencyError(IntegrationsError):
+    """A requested currency code is not one the provider can convert.
+
+    Like `UnsupportedDestinationError`, this is caller input rather than a
+    provider outage, so it is deliberately NOT an `IntegrationError`.
+    """
+
+
 class IntegrationTimeoutError(IntegrationError):
     """The external provider did not respond within the allowed time."""
 

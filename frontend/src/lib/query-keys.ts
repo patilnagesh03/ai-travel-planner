@@ -11,5 +11,10 @@ export const queryKeys = {
     ["itinerary", itineraryId, "items"] as const,
   places: (params: PlaceSearchParams) => ["places", params] as const,
   destinations: ["places", "destinations"] as const,
+  resolvedDestination: (destination: string) =>
+    ["places", "resolve", destination] as const,
+  weather: (tripId: string) => ["weather", tripId] as const,
+  currencyRates: (base: string, symbols: string[]) =>
+    ["currency", base, symbols] as const,
   aiStatus: ["ai", "status"] as const,
 }

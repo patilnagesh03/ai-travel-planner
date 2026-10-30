@@ -24,6 +24,12 @@ export function formatWeekday(value: string): string {
   return isValid(date) ? format(date, "EEEE") : value
 }
 
+export function formatWeekdayShort(value: string): string {
+  const date = parseISO(value)
+
+  return isValid(date) ? format(date, "EEE") : value
+}
+
 export function formatDateRange(start: string, end: string): string {
   const startDate = parseISO(start)
   const endDate = parseISO(end)

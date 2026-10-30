@@ -277,6 +277,85 @@ INTEGRATIONS_USER_AGENT = config(
 )
 
 
+# --------------------------------------------------------------------------
+# Weather (Open-Meteo)
+# --------------------------------------------------------------------------
+# Open-Meteo needs no API key and no account. The public endpoint is free
+# for non-commercial use, which is why it was chosen over providers that
+# require a key for a local development setup.
+WEATHER_API_URL = config(
+    "WEATHER_API_URL",
+    default="https://api.open-meteo.com/v1/forecast",
+)
+
+WEATHER_CONNECT_TIMEOUT = config(
+    "WEATHER_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+WEATHER_READ_TIMEOUT = config(
+    "WEATHER_READ_TIMEOUT",
+    cast=int,
+    default=15,
+)
+
+# Open-Meteo publishes at most 16 days of daily forecast, so this is both
+# our window and the provider's limit. Asking for more is not possible.
+WEATHER_FORECAST_DAYS = config(
+    "WEATHER_FORECAST_DAYS",
+    cast=int,
+    default=16,
+)
+
+# A daily forecast changes slowly; 15 minutes is short enough to stay
+# useful and long enough to stop a page refresh from hitting the provider.
+WEATHER_CACHE_TIMEOUT = config(
+    "WEATHER_CACHE_TIMEOUT",
+    cast=int,
+    default=900,
+)
+
+
+# --------------------------------------------------------------------------
+# Currency (Frankfurter)
+# --------------------------------------------------------------------------
+# Frankfurter publishes European Central Bank reference rates. It also
+# needs no key. Rates are published once per working day, so an hour of
+# caching is more than fresh enough.
+CURRENCY_API_URL = config(
+    "CURRENCY_API_URL",
+    default="https://api.frankfurter.dev/v1",
+)
+
+CURRENCY_CONNECT_TIMEOUT = config(
+    "CURRENCY_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+CURRENCY_READ_TIMEOUT = config(
+    "CURRENCY_READ_TIMEOUT",
+    cast=int,
+    default=10,
+)
+
+CURRENCY_CACHE_TIMEOUT = config(
+    "CURRENCY_CACHE_TIMEOUT",
+    cast=int,
+    default=3600,
+)
+
+# Upper bound on how many currencies one request may ask for. The
+# converter only ever needs a handful, and a cap keeps the provider call
+# (and the cache key) small.
+MAX_CURRENCY_SYMBOLS = config(
+    "MAX_CURRENCY_SYMBOLS",
+    cast=int,
+    default=12,
+)
+
+
 # ==========================================================================
 # Caching
 # ==========================================================================

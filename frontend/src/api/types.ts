@@ -268,3 +268,68 @@ export interface AiStatus {
   base_url: string
   available: boolean
 }
+
+export interface WeatherDay {
+  date: string
+  weather_code: number | null
+  condition: string
+  temperature_max: number | null
+  temperature_min: number | null
+  precipitation_probability: number | null
+  wind_speed_max: number | null
+  sunrise: string | null
+  sunset: string | null
+}
+
+export interface WeatherDestination {
+  name: string | null
+  state: string | null
+  latitude: number
+  longitude: number
+}
+
+export interface WeatherUnits {
+  temperature: string
+  wind_speed: string
+  precipitation_probability: string
+}
+
+export interface ForecastWindow {
+  starts_on: string
+  ends_on: string
+}
+
+export interface TripWeather {
+  destination: WeatherDestination
+  timezone: string | null
+  units: WeatherUnits
+  forecast_window: ForecastWindow
+  trip_days: number
+  covered_days: number
+  days: WeatherDay[]
+  note: string | null
+  attribution: string
+}
+
+export interface CurrencyRates {
+  base: string
+  date: string | null
+  rates: Record<string, number>
+  attribution: string
+}
+
+export interface BoundingBox {
+  south: number
+  west: number
+  north: number
+  east: number
+}
+
+export interface ResolvedDestination {
+  name: string
+  state: string
+  aliases: string[]
+  latitude: number
+  longitude: number
+  bbox: BoundingBox
+}

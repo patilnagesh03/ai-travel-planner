@@ -4,6 +4,7 @@ import type {
   Destination,
   Place,
   PlaceSearchParams,
+  ResolvedDestination,
 } from "@/api/types"
 import { unwrap } from "@/lib/envelope"
 
@@ -39,6 +40,27 @@ export async function searchPlaces(
 export async function listSupportedDestinations(): Promise<Destination[]> {
   const response = await api.get<ApiEnvelope<Destination[]>>(
     "/api/v1/places/destinations/",
+  )
+
+  return unwrap(response.data)
+}
+
+/**
+ * Resolve a free-text destination to the backend's curated coordinates.
+ *
+ * The map uses this instead of keeping its own copy of the city list, so a
+ * destination that works for place search also centres the map.
+ */
+export async function resolveDestination(
+  destination: string,
+  signal?: AbortSignal,
+): Promise<ResolvedDestination> {
+  const response = await api.get<ApiEnvelope<ResolvedDestination>>(
+    "/api/v1/places/resolve/",
+    {
+      signal,
+      params: { destination },
+    },
   )
 
   return unwrap(response.data)

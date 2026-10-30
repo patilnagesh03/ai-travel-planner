@@ -9,11 +9,12 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams } from "react-router-dom"
 
 import {
   listSupportedDestinations,
+  resolveDestination,
   searchPlaces,
 } from "@/api/places"
 import { getTrip } from "@/api/trips"
@@ -38,6 +39,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { MapPanel, type MapMarker } from "@/features/map/map-panel"
 import { getErrorMessage } from "@/lib/api-error"
 import { queryKeys } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
@@ -142,6 +144,17 @@ export function PlacesPage() {
     staleTime: 5 * 60_000,
   })
 
+  const searchedDestination = searchParams?.destination ?? ""
+
+  const resolvedDestinationQuery = useQuery({
+    queryKey: queryKeys.resolvedDestination(searchedDestination),
+    queryFn: ({ signal }) =>
+      resolveDestination(searchedDestination, signal),
+    enabled: Boolean(searchedDestination),
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+
   useEffect(() => {
     if (!searchQuery.isFetching) {
       setElapsedSeconds(0)
@@ -204,6 +217,50 @@ export function PlacesPage() {
     })
   }
 
+  const places = useMemo(
+    () => searchQuery.data ?? [],
+    [searchQuery.data],
+  )
+
+  const placeMarkers = useMemo<MapMarker[]>(
+    () =>
+      places.map((place) => ({
+        id: `${place.source}-${place.source_id}`,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        title: place.name,
+        description: [categoryLabel(place.category), place.address]
+          .filter(Boolean)
+          .join(" · "),
+      })),
+    [places],
+  )
+
+  // The resolved destination is the intended centre, but a place search may
+  // succeed while resolution is still loading. Falling back to the mean of
+  // the results means the map is never empty for a successful search.
+  const mapCenter = useMemo(() => {
+    if (resolvedDestinationQuery.data) {
+      return {
+        latitude: resolvedDestinationQuery.data.latitude,
+        longitude: resolvedDestinationQuery.data.longitude,
+      }
+    }
+
+    if (placeMarkers.length === 0) {
+      return null
+    }
+
+    return {
+      latitude:
+        placeMarkers.reduce((sum, marker) => sum + marker.latitude, 0) /
+        placeMarkers.length,
+      longitude:
+        placeMarkers.reduce((sum, marker) => sum + marker.longitude, 0) /
+        placeMarkers.length,
+    }
+  }, [placeMarkers, resolvedDestinationQuery.data])
+
   if (tripQuery.isPending) {
     return <LoadingState label="Loading trip…" />
   }
@@ -221,7 +278,6 @@ export function PlacesPage() {
   }
 
   const trip = tripQuery.data
-  const places = searchQuery.data ?? []
 
   return (
     <div className="space-y-8">
@@ -426,6 +482,20 @@ export function PlacesPage() {
               within {searchParams.radius_km} km
             </span>
           </div>
+
+          {mapCenter ? (
+            <Card>
+              <CardContent>
+                <MapPanel
+                  center={mapCenter}
+                  markers={placeMarkers}
+                  height={360}
+                  ariaLabel={`Map of places near ${searchParams.destination}`}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2">
             {places.map((place) => (
               <PlaceCard key={`${place.source}-${place.source_id}`} place={place} />

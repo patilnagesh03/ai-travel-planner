@@ -34,7 +34,7 @@ src/
   api/         typed API modules, Axios client, shared types
   auth/        session bootstrap, token storage, route guards
   components/  layout, shared states and shadcn/ui primitives
-  features/    trip and itinerary dialogs and cards
+  features/    trip, itinerary, weather, currency and map cards/dialogs
   lib/         envelope unwrapping, query keys, formatting, errors
   pages/       one component per route
 ```
@@ -49,20 +49,36 @@ src/
 - **Response envelopes.** Most endpoints return `{success, message, data}` while
   itinerary PATCH and the itinerary-item endpoints return bare objects. Both are
   normalised in `src/lib/envelope.ts` rather than reshaping backend responses.
-- **Timeouts.** 30 s by default, 60 s for place search, 180 s for AI generation.
-  These match how slow the real providers are; neither call streams.
+- **Timeouts.** 30 s by default, 60 s for place search, 20 s for weather, 15 s
+  for exchange rates and 180 s for AI generation. These match how slow the real
+  providers are; none of them streams.
 - **Interests.** The form loads the catalogue from `GET /api/v1/interests/`
   instead of hardcoding IDs.
 - **Generation.** `POST .../itinerary/generate/` is called directly (no
   `dry_run` preview, which would double a 60–130 s run). When an itinerary
   already exists the UI asks for confirmation before sending `replace=true`.
+- **Weather, rates and maps.** The trip page shows a trip-scoped forecast
+  (Open-Meteo), an INR converter (Frankfurter/ECB) and an OpenStreetMap panel.
+  The map reuses `GET /api/v1/places/resolve/` for the destination so the
+  frontend does not duplicate the backend's alias and state rules. Leaflet's
+  default image markers are avoided in favour of `CircleMarker`, which needs no
+  runtime asset resolution. The map wrapper is `isolate`d so Leaflet's pane
+  z-indices cannot cover dialogs or menus.
+- **Currencies.** The converter fetches all 11 offered currencies in one
+  request and switches target locally. The list is limited to codes Frankfurter
+  actually publishes: a single unsupported code would make the whole batch
+  unusable, because the provider silently omits it.
 
 ## Known limitations
 
 - Place search and AI generation depend on the public Overpass API and a local
   Ollama instance. When either is down the UI shows a retryable error and
   leaves existing data untouched.
-- The production bundle is a single chunk (~830 kB, ~255 kB gzipped). Route-level
-  code splitting is the obvious next step.
+- Weather, currency and map tiles depend on Open-Meteo, Frankfurter and
+  `tile.openstreetmap.org`. Each card reports its own failure without taking
+  the page down; the rest of the trip page keeps working.
+- The production bundle is a single chunk (~1 MB, ~305 kB gzipped). Leaflet is
+  the largest addition. Route-level code splitting, or lazily loading the map
+  components, is the obvious next step.
 - There are no frontend unit tests yet; behaviour is verified manually against
   the live API, and the backend suite covers the endpoints themselves.

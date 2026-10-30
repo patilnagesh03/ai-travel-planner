@@ -30,14 +30,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from backend.apps.integrations.exceptions import (
-    IntegrationRateLimitError,
-    IntegrationRequestError,
-    IntegrationResponseError,
-    IntegrationTimeoutError,
-    IntegrationUnavailableError,
     UnsupportedDestinationError,
 )
+from backend.apps.integrations.responses import (
+    PROVIDER_ERRORS,
+    provider_error_response,
+    unsupported_input_response,
+)
 from backend.apps.integrations.serializers import (
+    DestinationResolveSerializer,
     PlaceSearchSerializer,
     PlaceSerializer,
 )
@@ -49,97 +50,6 @@ from backend.apps.trips.services.trip_service import TripService
 
 
 logger = logging.getLogger(__name__)
-
-
-# Used when the provider rate limits us but does not say for how long.
-DEFAULT_RETRY_AFTER_SECONDS = 60
-
-# Every failure mode this API knows how to explain to a caller.
-EXPECTED_ERRORS = (
-    UnsupportedDestinationError,
-    IntegrationRateLimitError,
-    IntegrationTimeoutError,
-    IntegrationUnavailableError,
-    IntegrationRequestError,
-    IntegrationResponseError,
-)
-
-
-def build_error_response(exc):
-    """Map an expected integration failure onto an HTTP response."""
-
-    if isinstance(exc, UnsupportedDestinationError):
-        return Response(
-            {
-                "success": False,
-                "message": str(exc),
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    if isinstance(exc, IntegrationRateLimitError):
-        retry_after = exc.retry_after or DEFAULT_RETRY_AFTER_SECONDS
-
-        response = Response(
-            {
-                "success": False,
-                "message": (
-                    "The places provider is rate limiting requests. "
-                    "Please try again shortly."
-                ),
-            },
-            status=status.HTTP_429_TOO_MANY_REQUESTS,
-        )
-
-        response["Retry-After"] = str(retry_after)
-
-        return response
-
-    if isinstance(exc, IntegrationTimeoutError):
-        return Response(
-            {
-                "success": False,
-                "message": (
-                    "The places provider did not respond in time. "
-                    "Please try again shortly."
-                ),
-            },
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-
-    if isinstance(exc, IntegrationUnavailableError):
-        return Response(
-            {
-                "success": False,
-                "message": (
-                    "The places provider is temporarily unavailable. "
-                    "Please try again shortly."
-                ),
-            },
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-
-    if isinstance(exc, IntegrationRequestError):
-        return Response(
-            {
-                "success": False,
-                "message": (
-                    "The places provider rejected the request."
-                ),
-            },
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # IntegrationResponseError - the provider answered, but not usefully.
-    return Response(
-        {
-            "success": False,
-            "message": (
-                "The places provider returned an unexpected response."
-            ),
-        },
-        status=status.HTTP_502_BAD_GATEWAY,
-    )
 
 
 class BasePlaceSearchView(APIView):
@@ -164,8 +74,11 @@ class BasePlaceSearchView(APIView):
                 limit=serializer.validated_data.get("limit"),
             )
 
-        except EXPECTED_ERRORS as exc:
-            return build_error_response(exc)
+        except UnsupportedDestinationError as exc:
+            return unsupported_input_response(exc)
+
+        except PROVIDER_ERRORS as exc:
+            return provider_error_response(exc, "places")
 
         place_serializer = PlaceSerializer(places, many=True)
 
@@ -229,6 +142,51 @@ class SupportedDestinationsView(APIView):
                     "Supported destinations retrieved successfully."
                 ),
                 "data": destinations,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class DestinationResolveView(APIView):
+    """Resolve a destination name to its centre and bounding box.
+
+    The map and the forecast both need coordinates for a trip's free-text
+    destination. Resolving here means the frontend does not have to
+    duplicate the backend's spelling, alias and state rules.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = DestinationResolveSerializer(data=request.query_params)
+
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            city = DestinationService.resolve_city(
+                serializer.validated_data["destination"],
+            )
+
+        except UnsupportedDestinationError as exc:
+            return unsupported_input_response(exc)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Destination resolved successfully.",
+                "data": {
+                    "name": city.name,
+                    "state": city.state,
+                    "aliases": list(city.aliases),
+                    "latitude": city.center[0],
+                    "longitude": city.center[1],
+                    "bbox": {
+                        "south": city.south,
+                        "west": city.west,
+                        "north": city.north,
+                        "east": city.east,
+                    },
+                },
             },
             status=status.HTTP_200_OK,
         )

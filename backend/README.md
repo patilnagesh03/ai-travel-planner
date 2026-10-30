@@ -32,12 +32,13 @@ The application leverages Artificial Intelligence along with external services s
 * Generated locally with Ollama (no API key, no cost, no data leaves the machine)
 * See `backend/apps/ai/README.md`
 
-### Travel Information
+### Travel Information (implemented)
 
-* Weather Forecast
-* Currency Conversion
-* Nearby Places
-* Maps Integration
+* Daily weather forecast for the trip destination and dates (Open-Meteo)
+* Currency conversion using ECB reference rates (Frankfurter)
+* Nearby places from OpenStreetMap via the Overpass API
+* Interactive destination and itinerary map (Leaflet + OpenStreetMap tiles)
+* See `backend/apps/integrations/README.md` for endpoints and limitations
 
 ### Place Discovery (implemented)
 
@@ -83,11 +84,12 @@ The application leverages Artificial Intelligence along with external services s
 * OpenAI (Optional)
 ## External APIs
 
-* Weather API
-* Currency Exchange API
+* Open-Meteo — implemented, weather forecast, no key
+* Frankfurter (European Central Bank rates) — implemented, no key
+* OpenStreetMap tiles — implemented, map rendering
 * OpenStreetMap (Overpass API) — implemented, see `backend/apps/integrations/README.md`
-* Geocoding API
-* Places API
+* Geocoding API — not used; destinations come from a curated city list
+* Places API — not used; places come from OpenStreetMap
 
 ## Development Tools
 
@@ -230,7 +232,7 @@ http://127.0.0.1:8000/
 * Prompt Engineering
 * Save Generated Plans
 
-## Phase 4
+## Phase 4 (implemented)
 
 * Weather Integration
 * Currency Conversion

@@ -26,7 +26,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { CurrencyConverter } from "@/features/currency/currency-converter"
+import { TripMapCard } from "@/features/map/trip-map-card"
 import { TripFormDialog } from "@/features/trips/trip-form-dialog"
+import { WeatherCard } from "@/features/weather/weather-card"
 import { getErrorMessage } from "@/lib/api-error"
 import {
   formatCurrency,
@@ -184,6 +187,14 @@ export function TripDetailPage() {
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        <WeatherCard tripId={trip.id} className="lg:col-span-2" />
+        <CurrencyConverter
+          baseCurrency={trip.currency}
+          amount={trip.budget}
+        />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         {planningLinks.map((item) => {
           const Icon = item.icon
@@ -210,6 +221,8 @@ export function TripDetailPage() {
           )
         })}
       </div>
+
+      <TripMapCard trip={trip} />
 
       <Card>
         <CardHeader>

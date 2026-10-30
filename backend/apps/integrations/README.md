@@ -2,9 +2,16 @@
 
 External service integrations for the AI Travel Planner.
 
-This app currently contains **one** provider integration: place discovery
-backed by OpenStreetMap data through the
-[Overpass API](https://overpass-api.de/).
+This app currently contains **three** provider integrations, none of which
+needs an API key:
+
+* Place discovery backed by OpenStreetMap data through the
+  [Overpass API](https://overpass-api.de/).
+* Daily weather forecasts from [Open-Meteo](https://open-meteo.com/).
+* Exchange rates from the European Central Bank, published by
+  [Frankfurter](https://frankfurter.dev/).
+
+All three are read-through: nothing from a provider is stored in our database.
 
 ---
 
@@ -13,10 +20,13 @@ backed by OpenStreetMap data through the
 ```text
 backend/apps/integrations/
 ├── config.py                     # Configuration read from Django settings
+├── responses.py                  # Shared provider-error -> HTTP mapping
 ├── data/
 │   └── india_cities.py           # Curated India-first destination boxes
 ├── clients/
 │   ├── overpass_client.py        # HTTP transport for the Overpass API
+│   ├── open_meteo_client.py      # HTTP transport for Open-Meteo
+│   ├── frankfurter_client.py     # HTTP transport for Frankfurter
 │   └── ...
 ├── schemas/
 │   ├── place_schema.py           # Normalized Place / BoundingBox structures
@@ -24,20 +34,35 @@ backend/apps/integrations/
 ├── services/
 │   ├── places_service.py         # Query building + normalization
 │   ├── destination_service.py    # Destination name -> search area
+│   ├── weather_service.py        # Forecast window + trip-date filtering
+│   ├── currency_service.py       # Currency validation + rate caching
 │   └── ...
 ├── serializers/
-│   └── place_serializer.py       # Query validation + JSON representation
+│   ├── place_serializer.py       # Query validation + JSON representation
+│   ├── currency_serializer.py
+│   ├── destination_serializer.py
+│   └── ...
 ├── views/
-│   └── place_view.py             # Place discovery endpoints
+│   ├── place_view.py             # Place discovery + destination resolution
+│   ├── weather_view.py           # Trip weather endpoint
+│   ├── currency_view.py          # Exchange-rate endpoint
+│   └── ...
 ├── exceptions/
 │   ├── integration_exceptions.py # Meaningful integration failures
 │   └── ...
 ├── urls.py
 └── tests/
     ├── test_overpass_client.py
+    ├── test_open_meteo_client.py
+    ├── test_frankfurter_client.py
     ├── test_places_service.py
     ├── test_destination_service.py
+    ├── test_weather_service.py
+    ├── test_currency_service.py
     ├── test_place_view.py
+    ├── test_weather_view.py
+    ├── test_currency_view.py
+    ├── test_destination_resolve.py
     └── test_live_overpass.py     # Opt-in, hits the real provider
 ```
 
@@ -45,7 +70,7 @@ backend/apps/integrations/
 
 | Layer | Responsibility |
 |---|---|
-| `clients/` | Talks HTTP. Knows nothing about places. |
+| `clients/` | Talks HTTP. Knows nothing about trips, places or currencies. |
 | `services/` | Application logic: what to ask for, how to interpret the answer. |
 | `schemas/` | The stable, provider-agnostic data contract. |
 | `serializers/` | The only place where internal structures become JSON. |
@@ -70,6 +95,16 @@ All values live in `backend/settings.py` and can be overridden through
 | `INTEGRATIONS_USER_AGENT` | `AITravelPlanner/1.0 (nageshpatil7311@gmail.com)` | Identifies us to the provider. |
 | `PLACES_CACHE_TIMEOUT` | `600` | Seconds a result is reused. `0` disables caching. |
 | `OVERPASS_IPV4_ONLY` | `False` | Force the IPv4 address family. See below. |
+| `WEATHER_API_URL` | `https://api.open-meteo.com/v1/forecast` | Open-Meteo endpoint. |
+| `WEATHER_CONNECT_TIMEOUT` | `5` | Client-side connect timeout (seconds). |
+| `WEATHER_READ_TIMEOUT` | `15` | Client-side read timeout (seconds). |
+| `WEATHER_FORECAST_DAYS` | `16` | Forecast window. Clamped to the provider's 16-day maximum. |
+| `WEATHER_CACHE_TIMEOUT` | `900` | Seconds a forecast is reused. `0` disables caching. |
+| `CURRENCY_API_URL` | `https://api.frankfurter.dev/v1` | Frankfurter endpoint. |
+| `CURRENCY_CONNECT_TIMEOUT` | `5` | Client-side connect timeout (seconds). |
+| `CURRENCY_READ_TIMEOUT` | `10` | Client-side read timeout (seconds). |
+| `CURRENCY_CACHE_TIMEOUT` | `3600` | Seconds a rate set is reused. `0` disables caching. |
+| `MAX_CURRENCY_SYMBOLS` | `12` | Hard cap on target currencies per request. |
 
 ### Two different timeouts, on purpose
 
@@ -185,6 +220,118 @@ is ignored — the trip's own destination always wins.
 Lists the curated destinations that can be searched by name. Useful for
 building a dropdown in the frontend.
 
+### `GET /api/v1/places/resolve/?destination=Jaipur`
+
+Resolves a destination to the curated city's centre and bounding box. The map
+uses this so the frontend does not have to duplicate the backend's spelling,
+alias and state rules.
+
+```json
+{
+  "success": true,
+  "message": "Destination resolved successfully.",
+  "data": {
+    "name": "Jaipur",
+    "state": "Rajasthan",
+    "aliases": ["jpr", "jaipur city"],
+    "latitude": 26.915,
+    "longitude": 75.795,
+    "bbox": {
+      "south": 26.8,
+      "west": 75.72,
+      "north": 27.03,
+      "east": 75.87
+    }
+  }
+}
+```
+
+### `GET /api/v1/trips/<trip_id>/weather/`
+
+Daily forecast for the trip's destination and dates. Ownership is enforced:
+another user's trip returns `404`.
+
+The provider publishes a fixed 16-day window starting today. A trip can be in
+the past, far in the future, or longer than that window, so the response says
+exactly what it could cover:
+
+```json
+{
+  "success": true,
+  "message": "Forecast retrieved successfully.",
+  "data": {
+    "destination": {
+      "name": "Jaipur",
+      "state": "Rajasthan",
+      "latitude": 26.915,
+      "longitude": 75.795
+    },
+    "timezone": "Asia/Kolkata",
+    "units": {
+      "temperature": "°C",
+      "wind_speed": "km/h",
+      "precipitation_probability": "%"
+    },
+    "forecast_window": {
+      "starts_on": "2026-10-30",
+      "ends_on": "2026-11-14"
+    },
+    "trip_days": 4,
+    "covered_days": 4,
+    "days": [
+      {
+        "date": "2026-11-02",
+        "weather_code": 0,
+        "condition": "Clear sky",
+        "temperature_max": 28.4,
+        "temperature_min": 18.0,
+        "precipitation_probability": 0,
+        "wind_speed_max": 12.1,
+        "sunrise": "2026-11-02T06:36",
+        "sunset": "2026-11-02T17:48"
+      }
+    ],
+    "note": null,
+    "attribution": "Weather data by Open-Meteo.com"
+  }
+}
+```
+
+* Only days that are both **inside the trip** and **inside the forecast
+  window** are returned.
+* A trip entirely outside the window returns `200` with `days: []` and a
+  `note` explaining when weather will appear.
+* A partially covered trip includes a note saying where coverage stops.
+* An unsupported destination returns `400`. The same curated city list is used
+  as for place search.
+
+### `GET /api/v1/currency/rates/?base=INR&symbols=USD,EUR`
+
+Latest reference rates for a base currency. `base` defaults to `INR`.
+`symbols` is required, comma separated, and capped by `MAX_CURRENCY_SYMBOLS`.
+
+```json
+{
+  "success": true,
+  "message": "Rates retrieved successfully.",
+  "data": {
+    "base": "INR",
+    "date": "2026-10-30",
+    "rates": { "USD": 0.010532, "EUR": 0.0094268 },
+    "attribution": "Rates from the European Central Bank via Frankfurter"
+  }
+}
+```
+
+* The base currency cannot also appear in `symbols`.
+* Rates are reference rates, not a bank quote. The attribution is part of the
+  payload and must be shown next to the numbers.
+* Frankfurter answers `200` and silently omits a symbol it does not publish
+  when at least one requested symbol is known. A partial response is reported
+  as `400` naming the unsupported codes, not as a provider outage.
+* If none of the requested symbols is published, the provider returns `404`,
+  which is also a `400` to the caller.
+
 ---
 
 ## Destinations
@@ -246,16 +393,22 @@ views:
 | Exception | Cause | HTTP status |
 |---|---|---|
 | `UnsupportedDestinationError` | Destination not in the curated list | `400` |
+| `UnsupportedCurrencyError` | Currency code malformed or not published | `400` |
 | `IntegrationRequestError` | HTTP 4xx (bad query/request) | `400` |
 | `IntegrationRateLimitError` | HTTP 429 | `429` (+ `Retry-After`) |
 | `IntegrationResponseError` | Invalid JSON, unexpected structure | `502` |
 | `IntegrationTimeoutError` | Connect or read timeout | `503` |
 | `IntegrationUnavailableError` | HTTP 500/502/503/504, connection failure | `503` |
 
-`UnsupportedDestinationError` is deliberately **not** a subclass of
-`IntegrationError`. It is a problem with the caller's input, not a provider
-outage, and a caller that catches `IntegrationError` to report "the provider
-is having trouble" must not accidentally report this one.
+`UnsupportedDestinationError` and `UnsupportedCurrencyError` are deliberately
+**not** subclasses of `IntegrationError`. They are problems with the caller's
+input, not a provider outage, and a caller that catches `IntegrationError` to
+report "the provider is having trouble" must not accidentally report these.
+
+The mapping itself lives in `responses.py` so the places, weather and currency
+views cannot drift apart. Provider messages name the integration ("The weather
+provider ...", "The currency provider ...") so a failure is actionable without
+exposing URLs, response bodies or stack traces.
 
 `IntegrationRateLimitError` and `IntegrationUnavailableError` carry a
 `retry_after` attribute holding the provider's `Retry-After` value (in
@@ -286,13 +439,42 @@ failures they can actually explain.
 * **`MAX_PLACES_PER_SEARCH` is a ceiling, not a default.** A caller may ask
   for fewer places, never more. The API rejects an oversized `limit` with a
   `400` rather than silently clamping it.
-* **Nothing is persisted.** Place data is read through, normalized and
-  returned. No provider data is stored in our database, which keeps the
-  ODbL retention question out of scope.
-* **No caching.** Every request reaches the provider. Adding a cache is a
-  deliberate decision that has not been made yet.
+* **Nothing is persisted.** Place data, forecasts and rates are read through,
+  normalized and returned. No provider data is stored in our database, which
+  keeps the ODbL retention question out of scope.
 * **OpenStreetMap data is ODbL licensed.** Any UI showing place data must
-  display the attribution *"© OpenStreetMap contributors"*.
+  display the attribution *"© OpenStreetMap contributors"*. The map component
+  does this through Leaflet's attribution control.
+* **Weather and rates are cached separately** from place results, with their
+  own timeouts (15 minutes and 1 hour by default). Both caches are
+  per-process `LocMemCache`, so a multi-worker deployment keeps one cache per
+  worker.
+
+### Weather specifics
+
+* **The forecast is never extrapolated.** If the provider covers only part of
+  a trip, the response contains only those days. A note explains the gap
+  instead of inventing values.
+* **Units are explicit.** Temperatures are Celsius, wind is km/h and
+  precipitation is a probability percentage. The response carries the unit
+  strings so the UI does not hardcode them.
+* **Missing values stay `null`.** A missing temperature or probability is not
+  turned into `0`, because `0 °C` and "no value" mean different things.
+* **WMO codes are translated server-side.** The frontend receives a
+  human-readable `condition` label, not a numeric code to interpret.
+* **Attribution is required.** Open-Meteo asks clients to credit it; the
+  payload includes `"Weather data by Open-Meteo.com"`.
+
+### Currency specifics
+
+* **Rates come from the ECB**, via Frankfurter, and change once per working
+  day. A request is cached for an hour.
+* **Codes are validated before the provider is called.** Malformed codes
+  (anything that is not three ASCII letters) are rejected locally.
+* **No conversion arithmetic is done by the provider client.** The client
+  returns rates; the frontend multiplies the traveller's amount by a rate.
+* **Only provider-supported currencies can be offered.** Frankfurter publishes
+  a fixed set. Requesting an unsupported code is a `400`, not a silent zero.
 
 ### Data quality
 
@@ -340,7 +522,11 @@ python manage.py test backend.apps.integrations.tests.test_live_overpass
 
 ## Not implemented yet
 
-* **Caching.** Every call goes to the provider.
-* **Other providers.** Weather, routing, currency and accommodation
-  discovery are not implemented.
+* **Provider failover.** Each integration uses one configured endpoint.
+  Overpass mirrors are not tried automatically, and there is no retry policy.
+* **Live tests for weather and currency.** Their clients and services are
+  covered with mocked HTTP; only place discovery has an opt-in live test.
+* **Accommodation and routing discovery.**
 * **Place persistence.** Places are returned, never stored.
+* **A shared cache.** All caches use Django's per-process `LocMemCache`. A
+  multi-worker deployment would need Redis or a database cache to share them.
