@@ -68,6 +68,8 @@ INSTALLED_APPS = [
     'backend.apps.authentication',
     'backend.apps.trips',
     'backend.apps.itinerary',
+    'backend.apps.expenses',
+    'backend.apps.notifications',
     'backend.apps.integrations',
     'backend.apps.ai',
 ]

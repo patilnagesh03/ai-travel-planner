@@ -27,6 +27,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { CurrencyConverter } from "@/features/currency/currency-converter"
+import { ExpenseCard } from "@/features/expenses/expense-card"
 import { TripMapCard } from "@/features/map/trip-map-card"
 import { TripFormDialog } from "@/features/trips/trip-form-dialog"
 import { WeatherCard } from "@/features/weather/weather-card"
@@ -194,6 +195,8 @@ export function TripDetailPage() {
           amount={trip.budget}
         />
       </div>
+
+      <ExpenseCard tripId={trip.id} currency={trip.currency} />
 
       <div className="grid gap-4 md:grid-cols-3">
         {planningLinks.map((item) => {

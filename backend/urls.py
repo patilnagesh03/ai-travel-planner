@@ -47,6 +47,16 @@ urlpatterns = [
 
     path(
         "api/v1/",
+        include("backend.apps.expenses.urls"),
+    ),
+
+    path(
+        "api/v1/",
+        include("backend.apps.notifications.urls"),
+    ),
+
+    path(
+        "api/v1/",
         include("backend.apps.integrations.urls"),
     ),
 

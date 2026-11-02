@@ -333,3 +333,80 @@ export interface ResolvedDestination {
   longitude: number
   bbox: BoundingBox
 }
+
+export type ExpenseCategory =
+  | "transport"
+  | "stay"
+  | "food"
+  | "activities"
+  | "shopping"
+  | "other"
+
+export interface Expense {
+  id: string
+  trip: string
+  title: string
+  category: ExpenseCategory
+  /** DRF serializes DecimalField values as strings. */
+  amount: string
+  spent_on: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ExpensePayload {
+  title: string
+  category: ExpenseCategory
+  amount: string
+  spent_on: string
+  notes?: string | null
+}
+
+export interface ExpenseCategoryTotal {
+  category: ExpenseCategory
+  label: string
+  total: string
+  count: number
+}
+
+export interface ExpenseSummary {
+  currency: string
+  budget: string
+  total_spent: string
+  remaining: string
+  over_budget: boolean
+  expense_count: number
+  by_category: ExpenseCategoryTotal[]
+}
+
+/** The expense list carries its own summary so the two cannot disagree. */
+export interface ExpenseList {
+  expenses: Expense[]
+  summary: ExpenseSummary
+}
+
+export type NotificationKind =
+  | "budget_exceeded"
+  | "trip_soon"
+  | "trip_ended"
+
+export interface Notification {
+  id: string
+  kind: NotificationKind
+  title: string
+  message: string
+  trip: string | null
+  trip_title: string | null
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export interface UnreadNotificationCount {
+  unread: number
+}
+
+export interface ReadAllNotificationsResult {
+  updated: number
+}

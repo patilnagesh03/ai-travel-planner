@@ -47,11 +47,19 @@ The application leverages Artificial Intelligence along with external services s
 * Normalized place data from OpenStreetMap via the Overpass API
 * Category filtering, result limits and rate-limit aware error handling
 
+### Expenses and Notifications (implemented)
+
+* Record what was actually spent on a trip: title, category, amount, date, notes
+* Amounts are stored in the trip's own currency, so totals never mix rates
+* Budget-versus-actual summary with remaining budget and per-category totals
+* In-app notifications for budget overruns, trips starting within a week and
+  recently ended trips
+* Read, mark-all-read and dismiss, with an unread badge in the header
+
 ### Future Enhancements
 
 * Flight Recommendations
 * Hotel Recommendations
-* Expense Tracking
 * PDF Itinerary Export
 * Email Notifications
 * Collaborative Trip Planning
@@ -115,6 +123,8 @@ backend/
 │   ├── accounts/
 │   ├── trips/
 │   ├── itinerary/
+│   ├── expenses/            # trip expenses and budget summaries
+│   ├── notifications/       # in-app reminders and alerts
 │   ├── integrations/        # OpenStreetMap / Overpass places
 │   ├── ai/                  # Ollama itinerary generation
 │   ├── external_services/
@@ -238,11 +248,11 @@ http://127.0.0.1:8000/
 * Currency Conversion
 * Maps Integration
 
-## Phase 5
+## Phase 5 (expenses and notifications implemented)
 
-* Flight & Hotel Recommendations
 * Expense Tracker
 * Notifications
+* Flight & Hotel Recommendations (not started; live prices need a paid API)
 
 ## Phase 6
 
@@ -288,6 +298,55 @@ by hand.
   `OLLAMA_TEMPERATURE`
 
 `backend/.env` is ignored by git; only `backend/.env.example` is committed.
+
+---
+
+# 💸 Expenses and Notifications
+
+## Expenses
+
+| Method   | Path                                       | Purpose                          |
+| -------- | ------------------------------------------ | -------------------------------- |
+| `GET`    | `/api/v1/trips/<trip_id>/expenses/`        | List expenses **and** the summary |
+| `POST`   | `/api/v1/trips/<trip_id>/expenses/`        | Record an expense                |
+| `PATCH`  | `/api/v1/trips/<trip_id>/expenses/<id>/`   | Update an expense                |
+| `DELETE` | `/api/v1/trips/<trip_id>/expenses/<id>/`   | Delete an expense                |
+| `GET`    | `/api/v1/trips/<trip_id>/expenses/summary/`| Summary only                     |
+
+`GET .../expenses/` returns `{expenses, summary}` in one envelope so a list and
+its totals can never disagree. `?category=food` filters the list, while the
+summary stays trip-wide. Categories are `transport`, `stay`, `food`,
+`activities`, `shopping` and `other`; an unknown one is a `400`.
+
+Expenses use the trip's currency and budget — there is no per-expense currency,
+so a summary never has to combine exchange rates. `remaining` is allowed to be
+negative and `over_budget` is explicit; an over-budget trip is not clamped to
+zero.
+
+## Notifications
+
+| Method   | Path                                          | Purpose                     |
+| -------- | --------------------------------------------- | --------------------------- |
+| `GET`    | `/api/v1/notifications/?unread=true`          | List notifications          |
+| `GET`    | `/api/v1/notifications/unread-count/`         | Unread badge count          |
+| `POST`   | `/api/v1/notifications/<id>/read/`            | Mark one as read            |
+| `POST`   | `/api/v1/notifications/read-all/`             | Mark every unread item read |
+| `DELETE` | `/api/v1/notifications/<id>/`                 | Dismiss one                 |
+
+Notifications are **derived from current data**, not pushed by a worker.
+`NotificationService.sync_for_user()` runs when the list or unread count is
+requested, and after every expense mutation. It applies three rules:
+
+* **Budget exceeded** — spending is strictly greater than the trip budget.
+* **Trip starting soon** — the trip starts within 7 days (including today).
+* **Trip ended** — the trip ended 1–30 days ago.
+
+Each message carries a `dedupe_key` that encodes the state it describes (for
+example the budget or the start date) with a unique constraint on
+`(user, dedupe_key)`. Repeated syncs insert nothing, and a change to the
+underlying state (a new budget, a moved start date) produces exactly one new
+message. Marking as read is idempotent; "read all" only touches unread rows;
+dismissing deletes the row. The list is capped at the 50 newest items.
 
 ---
 

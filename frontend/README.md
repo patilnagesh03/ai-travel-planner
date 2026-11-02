@@ -34,7 +34,7 @@ src/
   api/         typed API modules, Axios client, shared types
   auth/        session bootstrap, token storage, route guards
   components/  layout, shared states and shadcn/ui primitives
-  features/    trip, itinerary, weather, currency and map cards/dialogs
+  features/    trip, itinerary, weather, currency, map, expenses, notifications
   lib/         envelope unwrapping, query keys, formatting, errors
   pages/       one component per route
 ```
@@ -64,6 +64,17 @@ src/
   default image markers are avoided in favour of `CircleMarker`, which needs no
   runtime asset resolution. The map wrapper is `isolate`d so Leaflet's pane
   z-indices cannot cover dialogs or menus.
+- **Expenses.** The trip page keeps a list and its totals in a single query:
+  `GET .../expenses/` returns both, so the progress bar cannot drift from the
+  rows below it. Every expense is in the trip's currency. Create and edit share
+  one dialog; deleting asks first, and each mutation refreshes the expense
+  query plus both notification queries because crossing the budget can add a
+  bell item immediately.
+- **Notifications.** The bell uses two queries. The unread count polls every
+  60 s and drives the badge; the list is only fetched when the popover opens.
+  Opening an item marks it read and navigates to its trip; "mark all read" and
+  dismissing refresh the badge and the list. The backend derives notifications
+  from trip and expense state, so the client never creates them.
 - **Currencies.** The converter fetches all 11 offered currencies in one
   request and switches target locally. The list is limited to codes Frankfurter
   actually publishes: a single unsupported code would make the whole batch
@@ -77,7 +88,11 @@ src/
 - Weather, currency and map tiles depend on Open-Meteo, Frankfurter and
   `tile.openstreetmap.org`. Each card reports its own failure without taking
   the page down; the rest of the trip page keeps working.
-- The production bundle is a single chunk (~1 MB, ~305 kB gzipped). Leaflet is
+- Expense summaries are trip-wide by design; the category filter narrows the
+  rows but not the totals. A budget-exceeded notification is re-armed only when
+  the budget changes, so its message can lag further spending until it is
+  dismissed.
+- The production bundle is a single chunk (~1.02 MB, ~310 kB gzipped). Leaflet is
   the largest addition. Route-level code splitting, or lazily loading the map
   components, is the obvious next step.
 - There are no frontend unit tests yet; behaviour is verified manually against

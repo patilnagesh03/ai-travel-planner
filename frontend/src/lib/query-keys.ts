@@ -16,5 +16,9 @@ export const queryKeys = {
   weather: (tripId: string) => ["weather", tripId] as const,
   currencyRates: (base: string, symbols: string[]) =>
     ["currency", base, symbols] as const,
+  expenses: (tripId: string) => ["expenses", tripId] as const,
+  notifications: (unreadOnly: boolean) =>
+    ["notifications", unreadOnly] as const,
+  notificationUnreadCount: ["notifications", "unread-count"] as const,
   aiStatus: ["ai", "status"] as const,
 }

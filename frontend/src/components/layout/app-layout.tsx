@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { NotificationBell } from "@/features/notifications/notification-bell"
 import { initials } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -60,6 +61,8 @@ export function AppLayout() {
                 New trip
               </Link>
             </Button>
+
+            {user ? <NotificationBell /> : null}
 
             {user ? (
               <DropdownMenu>
