@@ -27,6 +27,10 @@ API root, not at `/api`.
 | `npm run lint`    | Oxlint                                        |
 | `npm run preview` | Serve the production build locally            |
 
+GitHub Actions runs `npm ci`, `npm run lint` and `npm run build` on Node.js 22
+for pushes to `main`/`develop` and for pull requests; see
+`.github/workflows/ci.yml` at the repository root.
+
 ## Structure
 
 ```

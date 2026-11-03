@@ -1,5 +1,7 @@
 # 🌍 AI Travel Planner
 
+[![CI](https://github.com/patilnagesh03/ai-travel-planner/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/patilnagesh03/ai-travel-planner/actions/workflows/ci.yml)
+
 An AI-powered travel planning application that helps users create personalized travel itineraries based on their destination, budget, travel dates, and interests.
 
 The application leverages Artificial Intelligence along with external services such as weather, maps, and currency exchange to provide a complete travel planning experience.
@@ -254,11 +256,11 @@ http://127.0.0.1:8000/
 * Notifications
 * Flight & Hotel Recommendations (not started; live prices need a paid API)
 
-## Phase 6 (performance optimization implemented)
+## Phase 6 (performance and CI implemented)
 
 * Performance Optimization
-* Docker
 * CI/CD
+* Docker
 * Deployment
 
 ---
@@ -371,6 +373,23 @@ Future testing stack:
 * Pytest
 * Django Test Framework
 * Coverage Reports
+
+---
+
+# 🔁 Continuous Integration
+
+`.github/workflows/ci.yml` runs on pushes to `main` and `develop`, on every
+pull request and on manual dispatch.
+
+| Job        | What it does                                                              |
+| ---------- | ------------------------------------------------------------------------- |
+| `backend`  | Python 3.13 + PostgreSQL 17: `check`, `makemigrations --check`, `migrate`, `test --noinput` |
+| `frontend` | Node.js 22: `npm ci`, `npm run lint`, `npm run build`                      |
+
+The workflow starts a disposable PostgreSQL service and supplies test-only
+`DB_*`, JWT lifetime and CORS values as job environment variables, so no
+repository secrets are required. Pushing to `develop` produces the badge shown
+at the top of this README.
 
 ---
 
