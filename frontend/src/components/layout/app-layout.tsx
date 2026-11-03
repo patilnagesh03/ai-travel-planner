@@ -1,7 +1,9 @@
 import { LogOut, Plane, Plus, UserRound } from "lucide-react"
+import { Suspense } from "react"
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
 
 import { useAuth } from "@/auth/auth-context"
+import { LoadingState } from "@/components/shared/loading-state"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -105,7 +107,11 @@ export function AppLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <Outlet />
+        {/* Route chunks are fetched on navigation; the header and footer stay
+            interactive while a page loads. */}
+        <Suspense fallback={<LoadingState label="Loading page…" className="py-24" />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <footer className="border-t bg-background/60">

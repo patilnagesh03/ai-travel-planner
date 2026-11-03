@@ -43,6 +43,15 @@ class NotificationService:
 
         spent = ExpenseService.spent_by_trip(user)
 
+        # One query for every key already present beats a SELECT (and possible
+        # INSERT) per trip and rule. The unread badge polls every minute, so
+        # this keeps that request cheap for users with many trips.
+        existing_keys = set(
+            Notification.objects
+            .filter(user=user)
+            .values_list("dedupe_key", flat=True)
+        )
+
         created = []
 
         for trip in Trip.objects.filter(user=user):
@@ -50,16 +59,21 @@ class NotificationService:
                 NotificationService._sync_budget(
                     trip,
                     spent.get(trip.id, ZERO),
+                    existing_keys,
                 )
             )
             created.extend(
-                NotificationService._sync_reminders(trip, today)
+                NotificationService._sync_reminders(
+                    trip,
+                    today,
+                    existing_keys,
+                )
             )
 
         return created
 
     @staticmethod
-    def _sync_budget(trip, total_spent):
+    def _sync_budget(trip, total_spent, existing_keys):
         if total_spent <= trip.budget:
             return []
 
@@ -75,10 +89,11 @@ class NotificationService:
                 f"{trip.currency} {_money(total_spent)}, above the "
                 f"{trip.currency} {_money(trip.budget)} budget."
             ),
+            existing_keys=existing_keys,
         )
 
     @staticmethod
-    def _sync_reminders(trip, today):
+    def _sync_reminders(trip, today, existing_keys):
         created = []
 
         days_until_start = (trip.start_date - today).days
@@ -107,6 +122,7 @@ class NotificationService:
                         f"Your trip to {trip.destination} starts {timing}. "
                         "Check the forecast and your itinerary."
                     ),
+                    existing_keys=existing_keys,
                 )
             )
 
@@ -127,13 +143,17 @@ class NotificationService:
                         f"{trip.end_date:%d %b %Y}. Add any remaining "
                         "expenses so your totals stay accurate."
                     ),
+                    existing_keys=existing_keys,
                 )
             )
 
         return created
 
     @staticmethod
-    def _ensure(trip, kind, dedupe_key, title, message):
+    def _ensure(trip, kind, dedupe_key, title, message, existing_keys):
+        if dedupe_key in existing_keys:
+            return []
+
         notification, created = Notification.objects.get_or_create(
             user=trip.user,
             dedupe_key=dedupe_key,
@@ -144,6 +164,8 @@ class NotificationService:
                 "message": message,
             },
         )
+
+        existing_keys.add(dedupe_key)
 
         return [notification] if created else []
 

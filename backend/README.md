@@ -254,12 +254,12 @@ http://127.0.0.1:8000/
 * Notifications
 * Flight & Hotel Recommendations (not started; live prices need a paid API)
 
-## Phase 6
+## Phase 6 (performance optimization implemented)
 
+* Performance Optimization
 * Docker
 * CI/CD
 * Deployment
-* Performance Optimization
 
 ---
 
@@ -347,6 +347,11 @@ example the budget or the start date) with a unique constraint on
 underlying state (a new budget, a moved start date) produces exactly one new
 message. Marking as read is idempotent; "read all" only touches unread rows;
 dismissing deletes the row. The list is capped at the 50 newest items.
+
+Sync reads the user's existing dedupe keys in one query and only inserts keys
+that are genuinely new. A repeat sync therefore runs three queries — spending,
+existing keys, trips — no matter how many trips the user has, which matters
+because the UI polls the unread count every minute.
 
 ---
 

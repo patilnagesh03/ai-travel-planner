@@ -72,6 +72,11 @@ class Expense(models.Model):
                 fields=["trip", "category"],
                 name="expense_trip_category_idx",
             ),
+            # Matches the default ordering used by every expense list.
+            models.Index(
+                fields=["trip", "-spent_on", "-created_at"],
+                name="expense_trip_recent_idx",
+            ),
         ]
 
     def __str__(self):

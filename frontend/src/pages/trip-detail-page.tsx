@@ -10,7 +10,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react"
-import { useState } from "react"
+import { lazy, Suspense, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/card"
 import { CurrencyConverter } from "@/features/currency/currency-converter"
 import { ExpenseCard } from "@/features/expenses/expense-card"
-import { TripMapCard } from "@/features/map/trip-map-card"
 import { TripFormDialog } from "@/features/trips/trip-form-dialog"
 import { WeatherCard } from "@/features/weather/weather-card"
 import { getErrorMessage } from "@/lib/api-error"
@@ -39,6 +38,14 @@ import {
   tripNightCount,
 } from "@/lib/format"
 import { queryKeys } from "@/lib/query-keys"
+
+// Leaflet is the single largest dependency in the app. Keeping the map in its
+// own chunk means the trip summary, weather and expenses render before it.
+const TripMapCard = lazy(() =>
+  import("@/features/map/trip-map-card").then((module) => ({
+    default: module.TripMapCard,
+  })),
+)
 
 const planningLinks = [
   {
@@ -225,7 +232,16 @@ export function TripDetailPage() {
         })}
       </div>
 
-      <TripMapCard trip={trip} />
+      <Suspense
+        fallback={
+          <div
+            className="h-96 animate-pulse rounded-xl border bg-muted/40"
+            aria-hidden="true"
+          />
+        }
+      >
+        <TripMapCard trip={trip} />
+      </Suspense>
 
       <Card>
         <CardHeader>

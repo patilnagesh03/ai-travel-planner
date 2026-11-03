@@ -193,6 +193,72 @@ class ReminderNotificationTests(TestCase):
         self.assertEqual(self.kind_count(NotificationKind.TRIP_SOON), 1)
 
 
+class NotificationQueryTests(TestCase):
+    """The badge polls every minute, so sync must not fan out per trip."""
+
+    def setUp(self):
+        self.user = create_user()
+
+    def make_synced_trips(self, count):
+        trips = [
+            create_trip(
+                self.user,
+                start_in_days=20,
+                title=f"Trip {index}",
+            )
+            for index in range(count)
+        ]
+
+        for trip in trips:
+            add_expense(trip, "11000.00")
+
+        NotificationService.sync_for_user(self.user, today=TODAY)
+
+        return trips
+
+    def test_a_repeat_sync_uses_a_constant_number_of_queries(self):
+        trips = self.make_synced_trips(5)
+
+        self.assertEqual(
+            Notification.objects.filter(
+                kind=NotificationKind.BUDGET_EXCEEDED
+            ).count(),
+            len(trips),
+        )
+
+        # One query for spending, one for the existing dedupe keys and one for
+        # the trips themselves. It would be 2+ queries per trip without the
+        # prefetch.
+        with self.assertNumQueries(3):
+            created = NotificationService.sync_for_user(
+                self.user,
+                today=TODAY,
+            )
+
+        self.assertEqual(created, [])
+
+    def test_a_new_over_budget_trip_only_inserts_once(self):
+        self.make_synced_trips(3)
+
+        extra_trip = create_trip(
+            self.user,
+            start_in_days=20,
+            title="Extra trip",
+        )
+        add_expense(extra_trip, "12000.00")
+
+        created = NotificationService.sync_for_user(
+            self.user,
+            today=TODAY,
+        )
+
+        self.assertEqual(len(created), 1)
+        self.assertEqual(
+            created[0].kind,
+            NotificationKind.BUDGET_EXCEEDED,
+        )
+
+
 class NotificationStateTests(TestCase):
 
     def setUp(self):

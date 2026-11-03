@@ -9,7 +9,7 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useState } from "react"
 import { useParams } from "react-router-dom"
 
 import {
@@ -39,10 +39,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { MapPanel, type MapMarker } from "@/features/map/map-panel"
+import type { MapMarker } from "@/features/map/map-panel"
 import { getErrorMessage } from "@/lib/api-error"
 import { queryKeys } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
+
+// Effect-only import: Leaflet stays out of the places chunk until the map
+// actually renders.
+const MapPanel = lazy(() =>
+  import("@/features/map/map-panel").then((module) => ({
+    default: module.MapPanel,
+  })),
+)
 
 const CATEGORIES: { value: PlaceCategory; label: string }[] = [
   { value: "attraction", label: "Attractions" },
@@ -486,12 +494,21 @@ export function PlacesPage() {
           {mapCenter ? (
             <Card>
               <CardContent>
-                <MapPanel
-                  center={mapCenter}
-                  markers={placeMarkers}
-                  height={360}
-                  ariaLabel={`Map of places near ${searchParams.destination}`}
-                />
+                <Suspense
+                  fallback={
+                    <div
+                      className="h-[360px] animate-pulse rounded-lg bg-muted"
+                      aria-hidden="true"
+                    />
+                  }
+                >
+                  <MapPanel
+                    center={mapCenter}
+                    markers={placeMarkers}
+                    height={360}
+                    ariaLabel={`Map of places near ${searchParams.destination}`}
+                  />
+                </Suspense>
               </CardContent>
             </Card>
           ) : null}

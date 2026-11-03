@@ -75,6 +75,12 @@ src/
   Opening an item marks it read and navigates to its trip; "mark all read" and
   dismissing refresh the badge and the list. The backend derives notifications
   from trip and expense state, so the client never creates them.
+- **Code splitting.** Every route is a `React.lazy` chunk behind a `Suspense`
+  boundary, so the initial load only contains the shell, header and whichever
+  page was requested. The map is lazily loaded inside the trip page and the
+  places page too, which keeps Leaflet (~155 kB) out of both page chunks until a
+  map actually renders. The authenticated layout keeps its header and footer
+  visible while a page chunk arrives.
 - **Currencies.** The converter fetches all 11 offered currencies in one
   request and switches target locally. The list is limited to codes Frankfurter
   actually publishes: a single unsupported code would make the whole batch
@@ -92,8 +98,10 @@ src/
   rows but not the totals. A budget-exceeded notification is re-armed only when
   the budget changes, so its message can lag further spending until it is
   dismissed.
-- The production bundle is a single chunk (~1.02 MB, ~310 kB gzipped). Leaflet is
-  the largest addition. Route-level code splitting, or lazily loading the map
-  components, is the obvious next step.
+- The entry bundle is ~353 kB (~108 kB gzipped) and page chunks load on
+  demand; Leaflet is a separate ~155 kB chunk fetched only when a map renders.
+  The largest remaining shared chunk (~120 kB) is the form/validation stack
+  used by dialogs. Splitting the UI primitives further is the next candidate if
+  the entry bundle needs to shrink again.
 - There are no frontend unit tests yet; behaviour is verified manually against
   the live API, and the backend suite covers the endpoints themselves.
