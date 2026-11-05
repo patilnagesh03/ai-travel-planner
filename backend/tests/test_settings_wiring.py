@@ -60,6 +60,41 @@ class SettingsWiringTests(SimpleTestCase):
         # let any site call the API, so it must never be configured.
         self.assertNotIn("*", settings.CORS_ALLOWED_ORIGINS)
 
+    def test_security_middleware_runs_first(self):
+        self.assertEqual(
+            settings.MIDDLEWARE[0],
+            "django.middleware.security.SecurityMiddleware",
+        )
+
+    def test_clickjacking_is_denied(self):
+        self.assertEqual(settings.X_FRAME_OPTIONS, "DENY")
+
+    def test_mime_sniffing_is_disabled(self):
+        self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
+
+    def test_referrer_policy_is_set(self):
+        self.assertEqual(settings.SECURE_REFERRER_POLICY, "same-origin")
+
+    def test_proxy_header_trust_is_opt_in(self):
+        # Nothing in the development .env or the CI environment turns this
+        # on, so a direct client cannot claim its connection is secure.
+        self.assertIsNone(settings.SECURE_PROXY_SSL_HEADER)
+
+    def test_csrf_trusts_the_cors_origins_by_default(self):
+        self.assertEqual(
+            sorted(settings.CSRF_TRUSTED_ORIGINS),
+            sorted(settings.CORS_ALLOWED_ORIGINS),
+        )
+
+    def test_logging_has_a_console_handler(self):
+        handler = settings.LOGGING["handlers"]["console"]
+
+        self.assertEqual(handler["class"], "logging.StreamHandler")
+        self.assertIn(
+            settings.LOG_LEVEL,
+            {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
+        )
+
 
 @override_settings(CORS_ALLOWED_ORIGINS=["https://app.example.com"])
 class CorsHeaderTests(TestCase):

@@ -31,6 +31,20 @@ GitHub Actions runs `npm ci`, `npm run lint` and `npm run build` on Node.js 22
 for pushes to `main`/`develop` and for pull requests; see
 `.github/workflows/ci.yml` at the repository root.
 
+## Deployment
+
+`VITE_API_BASE_URL` is compiled into the bundle, so set it before building:
+
+```bash
+npm ci
+VITE_API_BASE_URL=https://api.example.com npm run build
+```
+
+Serve `dist/` with an SPA fallback: unknown paths must return `index.html` so
+client-side routes survive a refresh. Files under `/assets/` are content-hashed
+and can be cached indefinitely. The backend must list the same origin in
+`CORS_ALLOWED_ORIGINS`, and its own deployment steps are in `../backend/README.md`.
+
 ## Structure
 
 ```

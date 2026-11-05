@@ -83,6 +83,7 @@ The application leverages Artificial Intelligence along with external services s
 * Django
 * Django REST Framework
 * JWT Authentication
+* Waitress (cross-platform WSGI server)
 
 ## Database
 
@@ -256,12 +257,13 @@ http://127.0.0.1:8000/
 * Notifications
 * Flight & Hotel Recommendations (not started; live prices need a paid API)
 
-## Phase 6 (performance and CI implemented)
+## Phase 6 (performance, CI and deployment readiness implemented)
 
 * Performance Optimization
 * CI/CD
+* Deployment readiness
 * Docker
-* Deployment
+* Live deployment (not started; needs a hosting account)
 
 ---
 
@@ -383,13 +385,102 @@ pull request and on manual dispatch.
 
 | Job        | What it does                                                              |
 | ---------- | ------------------------------------------------------------------------- |
-| `backend`  | Python 3.13 + PostgreSQL 17: `check`, `makemigrations --check`, `migrate`, `test --noinput` |
+| `backend`  | Python 3.13 + PostgreSQL 17: `check`, `check --deploy`, `makemigrations --check`, `migrate`, `test --noinput` |
 | `frontend` | Node.js 22: `npm ci`, `npm run lint`, `npm run build`                      |
 
 The workflow starts a disposable PostgreSQL service and supplies test-only
 `DB_*`, JWT lifetime and CORS values as job environment variables, so no
-repository secrets are required. Pushing to `develop` produces the badge shown
-at the top of this README.
+repository secrets are required. The deployment check step temporarily sets
+`DEBUG=False` and a long test key, which is how the production security
+defaults are exercised on every run. Pushing to `develop` produces the badge
+shown at the top of this README.
+
+---
+
+# 🚀 Deployment
+
+The backend is a standard Django WSGI application and the frontend is a static
+SPA build. No container runtime is required.
+
+## 1. Build the frontend
+
+```bash
+cd frontend
+npm ci
+VITE_API_BASE_URL=https://api.example.com npm run build
+```
+
+`VITE_API_BASE_URL` is compiled into the bundle, so it must be set before
+`npm run build`. Serve `frontend/dist/` from a static host or the reverse proxy
+with an SPA fallback: unknown paths return `index.html`, while hashed files
+under `/assets/` can be cached indefinitely.
+
+## 2. Prepare the backend
+
+```bash
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput
+python manage.py check --deploy
+```
+
+`collectstatic` writes to `backend/staticfiles/`. Production Django does not
+serve static or media files: point the reverse proxy (or a storage backend) at
+`backend/staticfiles/` for `/static/` and `backend/media/` for `/media/`.
+
+## 3. Run the application server
+
+Waitress is included for a cross-platform WSGI server:
+
+```bash
+waitress-serve --listen=0.0.0.0:8000 backend.wsgi:application
+```
+
+On Linux, gunicorn is an equally good choice:
+
+```bash
+pip install gunicorn
+gunicorn backend.wsgi:application --bind 0.0.0.0:8000
+```
+
+## 4. Health checks
+
+`GET /health` (or `/health/`) answers:
+
+```json
+{"status": "ok", "database": "up"}
+```
+
+with status `200` when the database responds to `SELECT 1`, and `503` with
+`{"status": "unavailable", "database": "down"}` when it does not. The endpoint
+is unauthenticated and never exposes exception details, so it is safe for
+platform liveness and readiness probes.
+
+## 5. Production environment
+
+Set at least:
+
+* `DEBUG=False`
+* `SECRET_KEY` — a real key of 50+ characters
+* `ALLOWED_HOSTS` — the public hostnames
+* `CORS_ALLOWED_ORIGINS` — the frontend origin(s)
+* `DB_*` — the managed database connection
+
+With `DEBUG=False`, HTTPS redirect, secure cookies and one year of HSTS are
+enabled by default. When TLS terminates at a proxy, also set
+`TRUST_PROXY_HEADERS=True` so Django trusts `X-Forwarded-Proto`; leave it off
+for a directly reachable server. `CSRF_TRUSTED_ORIGINS` defaults to the CORS
+origins.
+
+## 6. Checklist before the first deploy
+
+- [ ] `python manage.py check --deploy` reports no issues
+- [ ] `python manage.py migrate --noinput` succeeds against the production DB
+- [ ] `collectstatic` succeeds and the proxy serves `/static/` and `/media/`
+- [ ] `DEBUG=False`, a real `SECRET_KEY`, and the production `ALLOWED_HOSTS`
+- [ ] The frontend was built with the production `VITE_API_BASE_URL`
+- [ ] `/health` returns `200` through the public hostname
+- [ ] HTTPS works end to end before the first production start; lower
+      `SECURE_HSTS_SECONDS` during rollout if one year is too aggressive
 
 ---
 

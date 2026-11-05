@@ -17,11 +17,16 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, re_path, include
 
 from backend.apps.trips.views.interest_view import InterestListView
+from backend.views import health_check
 
 urlpatterns = [
+    # Both forms are accepted because hosting platforms differ on whether
+    # their probe URL includes a trailing slash.
+    re_path(r"^health/?$", health_check, name="health"),
+
     path('admin/', admin.site.urls),
     
     path(

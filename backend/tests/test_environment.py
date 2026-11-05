@@ -12,7 +12,9 @@ from backend.environment import (
     PLACEHOLDER_SECRET_KEYS,
     resolve_allowed_hosts,
     resolve_cors_origins,
+    resolve_csrf_trusted_origins,
     resolve_secret_key,
+    resolve_security_settings,
     split_csv,
 )
 
@@ -129,3 +131,60 @@ class ResolveCorsOriginsTests(SimpleTestCase):
 
     def test_production_without_origins_allows_none(self):
         self.assertEqual(resolve_cors_origins("", debug=False), [])
+
+
+class ResolveCsrfTrustedOriginsTests(SimpleTestCase):
+
+    def test_an_explicit_list_wins(self):
+        self.assertEqual(
+            resolve_csrf_trusted_origins(
+                "https://admin.example.com",
+                ["https://app.example.com"],
+            ),
+            ["https://admin.example.com"],
+        )
+
+    def test_cors_origins_are_the_default(self):
+        cors = ["https://app.example.com", "https://admin.example.com"]
+
+        self.assertEqual(
+            resolve_csrf_trusted_origins("", cors),
+            cors,
+        )
+
+    def test_the_default_is_a_copy(self):
+        cors = ["https://app.example.com"]
+
+        result = resolve_csrf_trusted_origins("", cors)
+        result.append("https://evil.example.com")
+
+        self.assertEqual(cors, ["https://app.example.com"])
+
+    def test_a_blank_list_falls_back(self):
+        self.assertEqual(
+            resolve_csrf_trusted_origins(" , ", ["https://app.example.com"]),
+            ["https://app.example.com"],
+        )
+
+
+class ResolveSecuritySettingsTests(SimpleTestCase):
+
+    def test_development_disables_transport_security(self):
+        values = resolve_security_settings(debug=True)
+
+        self.assertFalse(values["SECURE_SSL_REDIRECT"])
+        self.assertFalse(values["SESSION_COOKIE_SECURE"])
+        self.assertFalse(values["CSRF_COOKIE_SECURE"])
+        self.assertEqual(values["SECURE_HSTS_SECONDS"], 0)
+        self.assertFalse(values["SECURE_HSTS_INCLUDE_SUBDOMAINS"])
+        self.assertFalse(values["SECURE_HSTS_PRELOAD"])
+
+    def test_production_enables_transport_security(self):
+        values = resolve_security_settings(debug=False)
+
+        self.assertTrue(values["SECURE_SSL_REDIRECT"])
+        self.assertTrue(values["SESSION_COOKIE_SECURE"])
+        self.assertTrue(values["CSRF_COOKIE_SECURE"])
+        self.assertEqual(values["SECURE_HSTS_SECONDS"], 31536000)
+        self.assertTrue(values["SECURE_HSTS_INCLUDE_SUBDOMAINS"])
+        self.assertTrue(values["SECURE_HSTS_PRELOAD"])

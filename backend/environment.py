@@ -127,3 +127,42 @@ def resolve_cors_origins(raw, debug):
         ]
 
     return []
+
+
+def resolve_csrf_trusted_origins(raw, cors_origins):
+    """Return the origins trusted for unsafe cross-site requests.
+
+    The API itself is token based, but Django's admin and session flows use
+    CSRF tokens. Trusting the frontend origins by default means a deployment
+    that already configured CORS does not silently break those flows. An
+    explicit list, when supplied, always wins.
+    """
+
+    origins = split_csv(raw)
+
+    if origins:
+        return origins
+
+    return list(cors_origins)
+
+
+def resolve_security_settings(debug):
+    """Return the HTTPS and cookie defaults for the current environment.
+
+    Production (``DEBUG`` off) opts into the safe behaviour: redirect to
+    HTTPS, mark cookies ``Secure`` and send HSTS. Development turns all of
+    it off so the local HTTP frontend and admin keep working. Every value
+    can still be overridden from the environment, which matters when TLS is
+    terminated by a reverse proxy or during a staged rollout.
+    """
+
+    production = not debug
+
+    return {
+        "SECURE_SSL_REDIRECT": production,
+        "SESSION_COOKIE_SECURE": production,
+        "CSRF_COOKIE_SECURE": production,
+        "SECURE_HSTS_SECONDS": 31536000 if production else 0,
+        "SECURE_HSTS_INCLUDE_SUBDOMAINS": production,
+        "SECURE_HSTS_PRELOAD": production,
+    }

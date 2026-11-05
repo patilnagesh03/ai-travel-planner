@@ -18,7 +18,9 @@ from decouple import config
 from backend.environment import (
     resolve_allowed_hosts,
     resolve_cors_origins,
+    resolve_csrf_trusted_origins,
     resolve_secret_key,
+    resolve_security_settings,
 )
 
 # The Django project directory (the `backend` package). The environment
@@ -154,6 +156,47 @@ USE_TZ = True
 
 
 # ==========================================================================
+# Logging
+# ==========================================================================
+# Application logs go to the console (stderr), where the WSGI server or the
+# hosting platform's log collector picks them up. Extra handlers (JSON, a
+# file, an error reporter) can be added here without touching app code.
+
+LOG_LEVEL = config("LOG_LEVEL", default="INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        # Access logging belongs to the WSGI server or reverse proxy. Keep
+        # client errors (expired tokens, scanners) out of the app log while
+        # still reporting server errors.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+
+# ==========================================================================
 # Static and media files
 # ==========================================================================
 # `static/` holds files that ship with the project. `staticfiles/` is where
@@ -192,6 +235,76 @@ CORS_ALLOW_CREDENTIALS = config(
     "CORS_ALLOW_CREDENTIALS",
     cast=bool,
     default=False,
+)
+
+
+# ==========================================================================
+# Deployment security
+# ==========================================================================
+# The defaults follow DEBUG: enabled in production, disabled locally so the
+# plain-HTTP development server keeps working. Every value can be overridden
+# from the environment, which matters when a reverse proxy terminates TLS or
+# when HSTS is rolled out gradually.
+
+_SECURITY = resolve_security_settings(DEBUG)
+
+SECURE_SSL_REDIRECT = config(
+    "SECURE_SSL_REDIRECT",
+    cast=bool,
+    default=_SECURITY["SECURE_SSL_REDIRECT"],
+)
+
+SESSION_COOKIE_SECURE = config(
+    "SESSION_COOKIE_SECURE",
+    cast=bool,
+    default=_SECURITY["SESSION_COOKIE_SECURE"],
+)
+
+CSRF_COOKIE_SECURE = config(
+    "CSRF_COOKIE_SECURE",
+    cast=bool,
+    default=_SECURITY["CSRF_COOKIE_SECURE"],
+)
+
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS",
+    cast=int,
+    default=_SECURITY["SECURE_HSTS_SECONDS"],
+)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    cast=bool,
+    default=_SECURITY["SECURE_HSTS_INCLUDE_SUBDOMAINS"],
+)
+
+SECURE_HSTS_PRELOAD = config(
+    "SECURE_HSTS_PRELOAD",
+    cast=bool,
+    default=_SECURITY["SECURE_HSTS_PRELOAD"],
+)
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+
+# Trust ``X-Forwarded-Proto`` only when a reverse proxy in front of Django
+# terminates TLS. Trusting the header unconditionally would let a direct
+# client pretend its connection is secure.
+TRUST_PROXY_HEADERS = config(
+    "TRUST_PROXY_HEADERS",
+    cast=bool,
+    default=False,
+)
+
+if TRUST_PROXY_HEADERS:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Django's admin and session flows need to know which origins may submit
+# unsafe requests. The API itself is JWT based, so this does not affect it.
+CSRF_TRUSTED_ORIGINS = resolve_csrf_trusted_origins(
+    config("CSRF_TRUSTED_ORIGINS", default=""),
+    CORS_ALLOWED_ORIGINS,
 )
 
 AUTH_USER_MODEL = "accounts.User"

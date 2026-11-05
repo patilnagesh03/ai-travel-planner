@@ -69,6 +69,12 @@ jobs:
       - name: Run Django checks
         run: python manage.py check
 
+      - name: Run deployment checks
+        env:
+          DEBUG: "False"
+          SECRET_KEY: ci-deployment-check-key-0123456789-abcdefghijklmnopqrstuvwxyz
+        run: python manage.py check --deploy
+
       - name: Check for missing migrations
         run: python manage.py makemigrations --check --dry-run
 
