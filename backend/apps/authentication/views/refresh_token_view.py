@@ -1,7 +1,7 @@
 import logging
 
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -35,7 +35,9 @@ class RefreshTokenView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        except ValidationError:
+        except APIException:
+            # Client errors (an invalid token, a missing field) must keep
+            # their own status codes instead of becoming a 500 below.
             raise
 
         except Exception:
