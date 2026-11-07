@@ -39,6 +39,10 @@ class PlaceCategory(models.TextChoices):
     PARK = "park", "Park"
     RESTAURANT = "restaurant", "Restaurant"
     CAFE = "cafe", "Cafe"
+    HOTEL = "hotel", "Hotel"
+    GUEST_HOUSE = "guest_house", "Guest House"
+    HOSTEL = "hostel", "Hostel"
+    APARTMENT = "apartment", "Apartment"
 
     # Defensive fallback only. `OTHER` is never queried for, it only exists
     # so that an element we cannot categorise is reported honestly instead
@@ -59,7 +63,21 @@ CATEGORY_SELECTORS = {
     PlaceCategory.PARK: '["leisure"="park"]',
     PlaceCategory.RESTAURANT: '["amenity"="restaurant"]',
     PlaceCategory.CAFE: '["amenity"="cafe"]',
+    PlaceCategory.HOTEL: '["tourism"="hotel"]',
+    PlaceCategory.GUEST_HOUSE: '["tourism"="guest_house"]',
+    PlaceCategory.HOSTEL: '["tourism"="hostel"]',
+    PlaceCategory.APARTMENT: '["tourism"="apartment"]',
 }
+
+
+# Categories that describe somewhere to stay. The hotel endpoint searches
+# only these, so it does not spend provider time on restaurants and museums.
+HOTEL_CATEGORIES = (
+    PlaceCategory.HOTEL,
+    PlaceCategory.GUEST_HOUSE,
+    PlaceCategory.HOSTEL,
+    PlaceCategory.APARTMENT,
+)
 
 
 # Rules used to work out the category of a RETURNED element.
@@ -77,6 +95,11 @@ CATEGORY_TAG_RULES = (
     ("leisure", "park", PlaceCategory.PARK),
     ("amenity", "restaurant", PlaceCategory.RESTAURANT),
     ("amenity", "cafe", PlaceCategory.CAFE),
+    ("tourism", "hotel", PlaceCategory.HOTEL),
+    ("tourism", "motel", PlaceCategory.HOTEL),
+    ("tourism", "guest_house", PlaceCategory.GUEST_HOUSE),
+    ("tourism", "hostel", PlaceCategory.HOSTEL),
+    ("tourism", "apartment", PlaceCategory.APARTMENT),
 )
 
 
@@ -144,6 +167,7 @@ class Place:
 __all__ = [
     "PlaceSource",
     "PlaceCategory",
+    "HOTEL_CATEGORIES",
     "CATEGORY_SELECTORS",
     "CATEGORY_TAG_RULES",
     "BoundingBox",

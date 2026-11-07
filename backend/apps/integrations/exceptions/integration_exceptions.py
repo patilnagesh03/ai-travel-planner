@@ -52,6 +52,16 @@ class UnsupportedCurrencyError(IntegrationsError):
     """
 
 
+class MissingTripOriginError(IntegrationsError):
+    """A flight link was requested for a trip that has no departure city.
+
+    Flight search engines cannot build a route without an origin, and
+    guessing one would produce a link that starts from the wrong place.
+    This is missing caller data, not a provider failure, so it is NOT an
+    `IntegrationError`.
+    """
+
+
 class IntegrationTimeoutError(IntegrationError):
     """The external provider did not respond within the allowed time."""
 

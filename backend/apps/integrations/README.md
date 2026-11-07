@@ -215,6 +215,96 @@ The same search, scoped to the destination of one of your trips. Ownership is
 enforced; another user's trip returns `404`. A `destination` query parameter
 is ignored — the trip's own destination always wins.
 
+### `GET /api/v1/trips/<trip_id>/flights/`
+
+Deterministic flight search links for the trip. No provider is called and no
+fare data is returned: the links are derived from the trip's `origin`,
+`destination`, dates and traveller count, so the same trip always produces the
+same URLs.
+
+`trip.origin` is optional on the model, but it is required here. A trip
+without one returns `400` with a message explaining how to add it, rather than
+guessing a departure city.
+
+```json
+{
+  "success": true,
+  "message": "Flight links retrieved successfully.",
+  "data": {
+    "origin": "Delhi",
+    "destination": "Goa",
+    "start_date": "2026-11-10",
+    "end_date": "2026-11-15",
+    "travelers": 2,
+    "disclaimer": "This app does not fetch or store live fares. ...",
+    "links": [
+      {
+        "provider": "google_flights",
+        "label": "Google Flights",
+        "url": "https://www.google.com/travel/flights?q=..."
+      },
+      {
+        "provider": "kayak",
+        "label": "Kayak",
+        "url": "https://www.kayak.co.in/flights/Delhi-Goa/2026-11-10/2026-11-15"
+      }
+    ]
+  }
+}
+```
+
+The traveller chooses the provider; any price or availability they see belongs
+to that provider, not to this application.
+
+### `GET /api/v1/trips/<trip_id>/hotels/`
+
+Accommodation around the trip's destination, from the same OpenStreetMap /
+Overpass pipeline as the place search. Results are restricted to `hotel`,
+`guest_house`, `hostel` and `apartment`, then ordered by their haversine
+distance from the curated city centre.
+
+| Query parameter | Type | Notes |
+|---|---|---|
+| `limit` | int | `1`..`20`. Default `20`. Applied after distance sorting. |
+
+Each hotel carries the normal `Place` fields plus `distance_km`. The response
+also includes the resolved `destination`, an `attribution` string and a
+`booking_url` that opens a Booking.com search for the same dates and party:
+
+```json
+{
+  "success": true,
+  "message": "Hotels retrieved successfully.",
+  "data": {
+    "destination": {
+      "name": "Bengaluru",
+      "state": "Karnataka",
+      "latitude": 12.99,
+      "longitude": 77.6
+    },
+    "hotels": [
+      {
+        "source": "openstreetmap",
+        "source_id": "node/12345",
+        "name": "Riverside Inn",
+        "category": "guest_house",
+        "latitude": 12.991,
+        "longitude": 77.601,
+        "address": "1 River Road",
+        "opening_hours": null,
+        "distance_km": 0.15
+      }
+    ],
+    "booking_url": "https://www.booking.com/searchresults.html?...",
+    "attribution": "Accommodation data © OpenStreetMap contributors."
+  }
+}
+```
+
+Because it uses Overpass, this endpoint shares the place search's error
+mapping: an unsupported destination is a `400`, and a provider outage is a
+`503`. Results are cached with the rest of the place searches.
+
 ### `GET /api/v1/places/destinations/`
 
 Lists the curated destinations that can be searched by name. Useful for
@@ -381,6 +471,27 @@ by name. That is reported explicitly rather than silently returning nothing.
 | `latitude` / `longitude` | `float` | Always present. |
 | `address` | `str \| None` | `None` when OSM has no `addr:*` tags. |
 | `opening_hours` | `str \| None` | Raw `opening_hours` tag, passed through unparsed. |
+
+### Place categories
+
+| Value | OSM tag | Notes |
+|---|---|---|
+| `attraction` | `tourism=attraction` | Also matches `tourism=gallery`. |
+| `museum` | `tourism=museum` | |
+| `viewpoint` | `tourism=viewpoint` | |
+| `monument` | `historic=monument` | Also matches `historic=memorial`. |
+| `religious_site` | `amenity=place_of_worship` | |
+| `park` | `leisure=park` | |
+| `restaurant` | `amenity=restaurant` | |
+| `cafe` | `amenity=cafe` | |
+| `hotel` | `tourism=hotel` | Also matches `tourism=motel`. |
+| `guest_house` | `tourism=guest_house` | |
+| `hostel` | `tourism=hostel` | |
+| `apartment` | `tourism=apartment` | |
+| `other` | — | Defensive fallback; never queried for. |
+
+The four accommodation categories are grouped in `HOTEL_CATEGORIES`, which is
+what the hotel endpoint searches.
 
 ---
 

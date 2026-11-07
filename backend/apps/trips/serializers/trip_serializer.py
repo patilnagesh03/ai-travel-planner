@@ -32,6 +32,7 @@ class TripSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "destination",
+            "origin",
             "start_date",
             "end_date",
             "budget",
@@ -66,6 +67,11 @@ class TripSerializer(serializers.ModelSerializer):
             )
 
         return value
+
+    def validate_origin(self, value):
+        # ``origin`` is optional, so a blank value is legitimate. Only trim
+        # surrounding whitespace so the flight links do not contain it.
+        return value.strip()
 
     def validate(self, attrs):
         start_date = attrs.get(

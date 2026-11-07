@@ -5,6 +5,8 @@ from backend.apps.integrations.views import (
     DestinationResolveView,
     PlaceSearchView,
     SupportedDestinationsView,
+    TripFlightLinksView,
+    TripHotelSearchView,
     TripPlaceSearchView,
     TripWeatherView,
 )
@@ -39,6 +41,18 @@ urlpatterns = [
         "trips/<uuid:trip_id>/weather/",
         TripWeatherView.as_view(),
         name="trip-weather",
+    ),
+
+    path(
+        "trips/<uuid:trip_id>/flights/",
+        TripFlightLinksView.as_view(),
+        name="trip-flights",
+    ),
+
+    path(
+        "trips/<uuid:trip_id>/hotels/",
+        TripHotelSearchView.as_view(),
+        name="trip-hotels",
     ),
 
     path(

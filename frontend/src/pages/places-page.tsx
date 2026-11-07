@@ -61,6 +61,10 @@ const CATEGORIES: { value: PlaceCategory; label: string }[] = [
   { value: "park", label: "Parks" },
   { value: "restaurant", label: "Restaurants" },
   { value: "cafe", label: "Cafés" },
+  { value: "hotel", label: "Hotels" },
+  { value: "guest_house", label: "Guest houses" },
+  { value: "hostel", label: "Hostels" },
+  { value: "apartment", label: "Apartments" },
 ]
 
 function categoryLabel(category: PlaceCategory): string {

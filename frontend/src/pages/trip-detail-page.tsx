@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/card"
 import { CurrencyConverter } from "@/features/currency/currency-converter"
 import { ExpenseCard } from "@/features/expenses/expense-card"
+import { FlightCard } from "@/features/flights/flight-card"
+import { HotelCard } from "@/features/hotels/hotel-card"
 import { TripFormDialog } from "@/features/trips/trip-form-dialog"
 import { WeatherCard } from "@/features/weather/weather-card"
 import { getErrorMessage } from "@/lib/api-error"
@@ -202,6 +204,10 @@ export function TripDetailPage() {
           amount={trip.budget}
         />
       </div>
+
+      <FlightCard trip={trip} />
+
+      <HotelCard trip={trip} />
 
       <ExpenseCard tripId={trip.id} currency={trip.currency} />
 

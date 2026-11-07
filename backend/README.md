@@ -58,10 +58,21 @@ The application leverages Artificial Intelligence along with external services s
   recently ended trips
 * Read, mark-all-read and dismiss, with an unread badge in the header
 
+### Flights and Accommodation (implemented)
+
+* Deterministic Google Flights and Kayak deep links built from the trip's
+  origin, destination and dates
+* Optional departure city on a trip; the flight endpoint explains how to add
+  one instead of guessing
+* Accommodation around the destination from the existing OpenStreetMap /
+  Overpass pipeline
+* Hotels, guest houses, hostels and apartments ordered by distance from the
+  city centre
+* A Booking.com search link for live prices. This app does not fetch or store
+  fares or availability; the provider shows those.
+
 ### Future Enhancements
 
-* Flight Recommendations
-* Hotel Recommendations
 * PDF Itinerary Export
 * Email Notifications
 * Collaborative Trip Planning
@@ -251,11 +262,12 @@ http://127.0.0.1:8000/
 * Currency Conversion
 * Maps Integration
 
-## Phase 5 (expenses and notifications implemented)
+## Phase 5 (implemented)
 
 * Expense Tracker
 * Notifications
-* Flight & Hotel Recommendations (not started; live prices need a paid API)
+* Flight & Hotel Recommendations (deterministic search links and
+  OpenStreetMap accommodation; live prices open on the provider's site)
 
 ## Phase 6 (performance, CI and deployment readiness implemented)
 

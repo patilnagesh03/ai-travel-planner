@@ -7,6 +7,7 @@ from .integration_exceptions import (
     IntegrationUnavailableError,
     IntegrationRequestError,
     IntegrationResponseError,
+    MissingTripOriginError,
     UnsupportedCurrencyError,
     UnsupportedDestinationError,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "IntegrationUnavailableError",
     "IntegrationRequestError",
     "IntegrationResponseError",
+    "MissingTripOriginError",
     "UnsupportedCurrencyError",
     "UnsupportedDestinationError",
 ]

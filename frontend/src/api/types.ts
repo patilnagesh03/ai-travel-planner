@@ -82,6 +82,8 @@ export interface Trip {
   id: string
   title: string
   destination: string
+  /** Departure city. Optional; required only for flight links. */
+  origin: string
   start_date: string
   end_date: string
   /** DRF serializes DecimalField values as strings. */
@@ -95,6 +97,7 @@ export interface Trip {
 export interface TripPayload {
   title: string
   destination: string
+  origin?: string
   start_date: string
   end_date: string
   budget: string
@@ -193,6 +196,10 @@ export type PlaceCategory =
   | "park"
   | "restaurant"
   | "cafe"
+  | "hotel"
+  | "guest_house"
+  | "hostel"
+  | "apartment"
   | "other"
 
 export interface Place {
@@ -332,6 +339,40 @@ export interface ResolvedDestination {
   latitude: number
   longitude: number
   bbox: BoundingBox
+}
+
+export interface FlightLink {
+  provider: string
+  label: string
+  url: string
+}
+
+export interface TripFlightLinks {
+  origin: string
+  destination: string
+  start_date: string
+  end_date: string
+  travelers: number
+  disclaimer: string
+  links: FlightLink[]
+}
+
+export interface Hotel extends Place {
+  distance_km: number
+}
+
+export interface HotelDestination {
+  name: string
+  state: string
+  latitude: number
+  longitude: number
+}
+
+export interface TripHotels {
+  destination: HotelDestination
+  hotels: Hotel[]
+  booking_url: string
+  attribution: string
 }
 
 export type ExpenseCategory =

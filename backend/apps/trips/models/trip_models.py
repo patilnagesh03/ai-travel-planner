@@ -26,6 +26,15 @@ class Trip(models.Model):
         max_length=255,
     )
 
+    # Free-text departure city. It is optional because existing trips were
+    # created before flight links existed; it is only required when a flight
+    # link is actually requested.
+    origin = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+
     start_date = models.DateField()
 
     end_date = models.DateField()

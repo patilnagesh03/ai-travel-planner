@@ -27,6 +27,10 @@ const tripSchema = z
   .object({
     title: z.string().trim().min(1, "Give the trip a title."),
     destination: z.string().trim().min(1, "Where are you going?"),
+    origin: z
+      .string()
+      .trim()
+      .max(255, "Use 255 characters or fewer."),
     start_date: z.string().min(1, "Pick a start date."),
     end_date: z.string().min(1, "Pick an end date."),
     budget: z
@@ -60,6 +64,7 @@ function defaultValues(trip?: Trip): TripFormValues {
     return {
       title: trip.title,
       destination: trip.destination,
+      origin: trip.origin,
       start_date: trip.start_date,
       end_date: trip.end_date,
       budget: trip.budget,
@@ -73,6 +78,7 @@ function defaultValues(trip?: Trip): TripFormValues {
   return {
     title: "",
     destination: "",
+    origin: "",
     start_date: format(today, "yyyy-MM-dd"),
     end_date: format(addDays(today, 7), "yyyy-MM-dd"),
     budget: "",
@@ -115,6 +121,7 @@ export function TripFormDialog({
       const payload = {
         title: values.title.trim(),
         destination: values.destination.trim(),
+        origin: values.origin.trim(),
         start_date: values.start_date,
         end_date: values.end_date,
         budget: values.budget,
@@ -187,6 +194,23 @@ export function TripFormDialog({
             ) : null}
             <p className="text-xs text-muted-foreground">
               Use a supported Indian city. The place search matches this name.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="trip-origin">Departure city (optional)</Label>
+            <Input
+              id="trip-origin"
+              placeholder="Delhi"
+              aria-invalid={!!errors.origin}
+              {...register("origin")}
+            />
+            {errors.origin ? (
+              <p className="text-sm text-destructive">{errors.origin.message}</p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Used to build flight search links. Leave it blank if you only
+              need hotels and places.
             </p>
           </div>
 

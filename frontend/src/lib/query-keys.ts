@@ -14,6 +14,8 @@ export const queryKeys = {
   resolvedDestination: (destination: string) =>
     ["places", "resolve", destination] as const,
   weather: (tripId: string) => ["weather", tripId] as const,
+  flights: (tripId: string) => ["flights", tripId] as const,
+  hotels: (tripId: string) => ["hotels", tripId] as const,
   currencyRates: (base: string, symbols: string[]) =>
     ["currency", base, symbols] as const,
   expenses: (tripId: string) => ["expenses", tripId] as const,

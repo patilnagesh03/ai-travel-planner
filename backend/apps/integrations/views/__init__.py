@@ -1,4 +1,6 @@
 from .currency_view import CurrencyRatesView
+from .flight_view import TripFlightLinksView
+from .hotel_view import TripHotelSearchView
 from .place_view import (
     DestinationResolveView,
     PlaceSearchView,
@@ -12,6 +14,8 @@ __all__ = [
     "DestinationResolveView",
     "PlaceSearchView",
     "SupportedDestinationsView",
+    "TripFlightLinksView",
+    "TripHotelSearchView",
     "TripPlaceSearchView",
     "TripWeatherView",
 ]
