@@ -167,6 +167,22 @@ class WeatherForecastTests(CacheClearingMixin, SimpleTestCase):
         self.assertEqual(result["covered_days"], 0)
         self.assertIn("outside the 16-day forecast window", result["note"])
 
+    def test_a_trip_that_already_ended_says_the_forecast_is_gone(self):
+        trip = build_trip(
+            start_date=date(2026, 10, 20),
+            end_date=date(2026, 10, 25),
+        )
+
+        result = WeatherService.forecast_for_trip(
+            trip,
+            client=build_client(),
+            today=TODAY,
+        )
+
+        self.assertEqual(result["days"], [])
+        self.assertEqual(result["covered_days"], 0)
+        self.assertIn("already ended", result["note"])
+
     def test_a_trip_longer_than_the_window_says_where_coverage_stops(self):
         trip = build_trip(
             start_date=date(2026, 10, 30),

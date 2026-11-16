@@ -330,6 +330,12 @@ class WeatherService:
         """Explain any gap between the trip and what the provider covers."""
 
         if covered_days == 0:
+            if end_date < today:
+                return (
+                    "This trip has already ended. Live forecasts are no "
+                    "longer available for its dates."
+                )
+
             return (
                 "This trip is outside the {days}-day forecast window. "
                 "Weather will appear closer to the travel dates.".format(
