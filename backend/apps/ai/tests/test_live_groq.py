@@ -1,23 +1,24 @@
 """
-A live test against a real, running Ollama server.
+A live test against the real Groq API.
 
-This test is SKIPPED by default. It needs a real model, so it only runs
+This test is SKIPPED by default. It needs a real API key, so it only runs
 when you explicitly ask for it::
 
     # Windows PowerShell
-    $env:OLLAMA_LIVE_TEST = "1"
-    python manage.py test backend.apps.ai.tests.test_live_ollama
+    $env:GROQ_LIVE_TEST = "1"
+    python manage.py test backend.apps.ai.tests.test_live_groq
 
     # Linux / macOS
-    OLLAMA_LIVE_TEST=1 python manage.py test \
-        backend.apps.ai.tests.test_live_ollama
+    GROQ_LIVE_TEST=1 python manage.py test \
+        backend.apps.ai.tests.test_live_groq
 
 The places provider is mocked in this test. The Overpass integration has
 its own live test, and this one is about the AI path. The model itself is
 real.
 
 The test runs against Django's throwaway test database, so it never
-touches your development data.
+touches your development data. It does use a small amount of free-tier
+quota.
 """
 
 import os
@@ -28,15 +29,15 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
-from backend.apps.ai.clients import OllamaClient
-from backend.apps.ai.config import OLLAMA_MODEL
+from backend.apps.ai.clients import GroqClient
+from backend.apps.ai.config import GROQ_MODEL
 from backend.apps.ai.services import ItineraryGenerationService
 from backend.apps.integrations.schemas import Place, PlaceCategory
 from backend.apps.itinerary.models import Itinerary, ItineraryItem
 from backend.apps.trips.models import Trip
 
 
-LIVE_TEST_ENABLED = os.environ.get("OLLAMA_LIVE_TEST") == "1"
+LIVE_TEST_ENABLED = os.environ.get("GROQ_LIVE_TEST") == "1"
 
 
 def make_place(source_id="node/1", name="Cubbon Park"):
@@ -52,13 +53,13 @@ def make_place(source_id="node/1", name="Cubbon Park"):
     )
 
 
-class LiveOllamaTests(TestCase):
+class LiveGroqTests(TestCase):
 
     def setUp(self):
         if not LIVE_TEST_ENABLED:
             self.skipTest(
-                "Live Ollama test is disabled. "
-                "Set OLLAMA_LIVE_TEST=1 to run it."
+                "Live Groq test is disabled. "
+                "Set GROQ_LIVE_TEST=1 to run it."
             )
 
         user_model = get_user_model()
@@ -88,14 +89,14 @@ class LiveOllamaTests(TestCase):
             make_place("node/4", "Lalbagh Palace"),
         ]
 
-    def test_the_configured_model_is_installed(self):
-        models = OllamaClient().list_models()
+    def test_the_configured_model_is_available(self):
+        models = GroqClient().list_models()
 
         self.assertIn(
-            OLLAMA_MODEL,
+            GROQ_MODEL,
             models,
-            "The configured model '{0}' is not installed. "
-            "Pull it with: ollama pull {0}".format(OLLAMA_MODEL),
+            "The configured model '{0}' is not available to this key. "
+            "Check GROQ_MODEL.".format(GROQ_MODEL),
         )
 
     def test_a_real_generation_produces_a_validated_plan(self):
@@ -179,7 +180,7 @@ class LiveOllamaTests(TestCase):
 
         with patch(
             "backend.apps.ai.services.itinerary_generation_service."
-            "OllamaClient.generate",
+            "GroqClient.generate",
             return_value=hostile,
         ):
             result = ItineraryGenerationService.generate(

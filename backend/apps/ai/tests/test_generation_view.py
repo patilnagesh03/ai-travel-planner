@@ -2,7 +2,7 @@
 API tests for the AI itinerary generation endpoint.
 
 Both the model and the places provider are mocked, so the tests never need
-a running Ollama server and never touch the public Overpass instance.
+a Groq API key and never touch the public Overpass instance.
 """
 
 import json
@@ -29,7 +29,7 @@ from backend.apps.trips.models import Trip
 
 
 CLIENT_TARGET = (
-    "backend.apps.ai.services.itinerary_generation_service.OllamaClient"
+    "backend.apps.ai.services.itinerary_generation_service.GroqClient"
 )
 
 PLACES_TARGET = (
@@ -282,8 +282,8 @@ class ItineraryGenerationApiTests(APITestCase):
             with patch(CLIENT_TARGET) as mocked_client:
                 mocked_client.return_value.generate.side_effect = (
                     AIModelError(
-                        "The configured AI model is not available. "
-                        "Pull it first with `ollama pull`."
+                        "The configured AI model is not available on this "
+                        "account. Check GROQ_MODEL."
                     )
                 )
 
@@ -294,7 +294,7 @@ class ItineraryGenerationApiTests(APITestCase):
             status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
-        self.assertIn("ollama pull", response.data["message"])
+        self.assertIn("GROQ_MODEL", response.data["message"])
 
     def test_unusable_model_output_returns_502(self):
         with patch(PLACES_TARGET, return_value=self.places):
@@ -372,7 +372,7 @@ class AIStatusApiTests(APITestCase):
 
     def test_status_reports_the_configured_provider(self):
         with patch(
-            "backend.apps.ai.views.generation_view.OllamaClient"
+            "backend.apps.ai.views.generation_view.GroqClient"
         ) as mocked_client:
             mocked_client.return_value.is_available.return_value = True
 
@@ -380,5 +380,5 @@ class AIStatusApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        self.assertEqual(response.data["data"]["provider"], "ollama")
+        self.assertEqual(response.data["data"]["provider"], "groq")
         self.assertTrue(response.data["data"]["available"])

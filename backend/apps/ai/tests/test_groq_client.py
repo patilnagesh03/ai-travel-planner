@@ -1,8 +1,8 @@
 """
-Unit tests for the Ollama HTTP client.
+Unit tests for the Groq HTTP client.
 
-Every test mocks `requests`, so the suite never needs a running Ollama
-server.
+Every test mocks `requests`, so the suite never needs a real API key and
+never makes a network call.
 """
 
 import json
@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import requests
 from django.test import SimpleTestCase
 
-from backend.apps.ai.clients import OllamaClient, parse_json_completion
+from backend.apps.ai.clients import GroqClient, parse_json_completion
 from backend.apps.ai.exceptions import (
     AIModelError,
     AIProviderTimeoutError,
@@ -20,8 +20,8 @@ from backend.apps.ai.exceptions import (
 )
 
 
-POST_TARGET = "backend.apps.ai.clients.ollama_client.requests.post"
-GET_TARGET = "backend.apps.ai.clients.ollama_client.requests.get"
+POST_TARGET = "backend.apps.ai.clients.groq_client.requests.post"
+GET_TARGET = "backend.apps.ai.clients.groq_client.requests.get"
 
 
 def build_response(status_code=200, payload=None, headers=None):
@@ -35,21 +35,32 @@ def build_response(status_code=200, payload=None, headers=None):
     return response
 
 
-class OllamaClientTests(SimpleTestCase):
+def chat_payload(content='{"title": "Bengaluru Trip"}'):
+    return {
+        "id": "chatcmpl-1",
+        "model": "openai/gpt-oss-120b",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                },
+                "finish_reason": "stop",
+            },
+        ],
+    }
+
+
+class GroqClientTests(SimpleTestCase):
 
     def setUp(self):
-        self.client = OllamaClient()
+        self.client = GroqClient(api_key="test-key")
 
     def test_generate_returns_the_raw_completion(self):
-        payload = {
-            "model": "llama3.1",
-            "response": '{"title": "Bengaluru Trip"}',
-            "done": True,
-        }
-
         with patch(
             POST_TARGET,
-            return_value=build_response(payload=payload),
+            return_value=build_response(payload=chat_payload()),
         ):
             completion = self.client.generate(prompt="Plan a trip.")
 
@@ -59,11 +70,9 @@ class OllamaClientTests(SimpleTestCase):
         )
 
     def test_request_asks_for_json_and_uses_the_configured_model(self):
-        payload = {"response": "{}", "done": True}
-
         with patch(
             POST_TARGET,
-            return_value=build_response(payload=payload),
+            return_value=build_response(payload=chat_payload("{}")),
         ) as mocked_post:
             self.client.generate(
                 prompt="Plan a trip.",
@@ -73,38 +82,97 @@ class OllamaClientTests(SimpleTestCase):
         kwargs = mocked_post.call_args.kwargs
 
         self.assertEqual(kwargs["json"]["model"], self.client.model)
-        self.assertEqual(kwargs["json"]["format"], "json")
-        self.assertFalse(kwargs["json"]["stream"])
-        self.assertEqual(kwargs["json"]["prompt"], "Plan a trip.")
         self.assertEqual(
-            kwargs["json"]["system"],
-            "You are a planner.",
+            kwargs["json"]["response_format"],
+            {"type": "json_object"},
+        )
+        self.assertFalse(kwargs["json"]["stream"])
+        self.assertEqual(
+            kwargs["json"]["temperature"],
+            self.client.temperature,
+        )
+        self.assertGreater(
+            kwargs["json"]["max_completion_tokens"],
+            0,
+        )
+        self.assertEqual(
+            kwargs["json"]["messages"],
+            [
+                {"role": "system", "content": "You are a planner."},
+                {"role": "user", "content": "Plan a trip."},
+            ],
         )
         self.assertEqual(kwargs["timeout"], self.client.timeout)
 
     def test_system_prompt_is_optional(self):
-        payload = {"response": "{}", "done": True}
-
         with patch(
             POST_TARGET,
-            return_value=build_response(payload=payload),
+            return_value=build_response(payload=chat_payload("{}")),
         ) as mocked_post:
             self.client.generate(prompt="Plan a trip.")
 
-        self.assertNotIn("system", mocked_post.call_args.kwargs["json"])
+        messages = mocked_post.call_args.kwargs["json"]["messages"]
 
-    def test_missing_response_field_raises_response_error(self):
+        self.assertEqual(
+            messages,
+            [{"role": "user", "content": "Plan a trip."}],
+        )
+
+    def test_the_api_key_is_sent_as_a_bearer_token(self):
         with patch(
             POST_TARGET,
-            return_value=build_response(payload={"done": True}),
+            return_value=build_response(payload=chat_payload("{}")),
+        ) as mocked_post:
+            self.client.generate(prompt="Plan a trip.")
+
+        headers = mocked_post.call_args.kwargs["headers"]
+
+        self.assertEqual(
+            headers["Authorization"],
+            "Bearer test-key",
+        )
+
+    def test_a_missing_api_key_raises_model_error_before_the_call(self):
+        client = GroqClient(api_key="")
+
+        with patch(POST_TARGET) as mocked_post:
+            with self.assertRaises(AIModelError):
+                client.generate(prompt="Plan a trip.")
+
+        mocked_post.assert_not_called()
+
+    def test_missing_choices_raises_response_error(self):
+        with patch(
+            POST_TARGET,
+            return_value=build_response(payload={"id": "x"}),
         ):
             with self.assertRaises(AIResponseError):
                 self.client.generate(prompt="Plan a trip.")
 
-    def test_non_string_response_raises_response_error(self):
+    def test_empty_choices_raises_response_error(self):
         with patch(
             POST_TARGET,
-            return_value=build_response(payload={"response": 42}),
+            return_value=build_response(payload={"choices": []}),
+        ):
+            with self.assertRaises(AIResponseError):
+                self.client.generate(prompt="Plan a trip.")
+
+    def test_missing_content_raises_response_error(self):
+        payload = {
+            "choices": [{"message": {"role": "assistant"}}],
+        }
+
+        with patch(
+            POST_TARGET,
+            return_value=build_response(payload=payload),
+        ):
+            with self.assertRaises(AIResponseError):
+                self.client.generate(prompt="Plan a trip.")
+
+    def test_blank_content_raises_response_error(self):
+        with patch(
+            POST_TARGET,
+            return_value=build_response(payload=chat_payload("   ")),
         ):
             with self.assertRaises(AIResponseError):
                 self.client.generate(prompt="Plan a trip.")
@@ -136,12 +204,28 @@ class OllamaClientTests(SimpleTestCase):
             with self.assertRaises(AIProviderTimeoutError):
                 self.client.generate(prompt="Plan a trip.")
 
-    def test_missing_model_raises_model_error(self):
+    def test_rejected_api_key_raises_model_error(self):
+        with patch(
+            POST_TARGET,
+            return_value=build_response(status_code=401),
+        ):
+            with self.assertRaises(AIModelError):
+                self.client.generate(prompt="Plan a trip.")
+
+    def test_unknown_model_raises_model_error(self):
         with patch(
             POST_TARGET,
             return_value=build_response(status_code=404),
         ):
             with self.assertRaises(AIModelError):
+                self.client.generate(prompt="Plan a trip.")
+
+    def test_rate_limit_raises_unavailable(self):
+        with patch(
+            POST_TARGET,
+            return_value=build_response(status_code=429),
+        ):
+            with self.assertRaises(AIProviderUnavailableError):
                 self.client.generate(prompt="Plan a trip.")
 
     def test_server_error_raises_unavailable(self):
@@ -152,11 +236,11 @@ class OllamaClientTests(SimpleTestCase):
             with self.assertRaises(AIProviderUnavailableError):
                 self.client.generate(prompt="Plan a trip.")
 
-    def test_list_models_returns_model_names(self):
+    def test_list_models_returns_model_ids(self):
         payload = {
-            "models": [
-                {"name": "llama3.1:latest"},
-                {"name": "mistral:latest"},
+            "data": [
+                {"id": "openai/gpt-oss-120b"},
+                {"id": "openai/gpt-oss-20b"},
             ],
         }
 
@@ -168,18 +252,26 @@ class OllamaClientTests(SimpleTestCase):
 
         self.assertEqual(
             models,
-            ["llama3.1:latest", "mistral:latest"],
+            ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
         )
 
-    def test_is_available_reports_false_when_the_server_is_down(self):
+    def test_is_available_reports_false_without_a_key(self):
+        client = GroqClient(api_key="")
+
+        with patch(GET_TARGET) as mocked_get:
+            self.assertFalse(client.is_available())
+
+        mocked_get.assert_not_called()
+
+    def test_is_available_reports_false_when_the_api_is_down(self):
         with patch(
             GET_TARGET,
             side_effect=requests.exceptions.ConnectionError("refused"),
         ):
             self.assertFalse(self.client.is_available())
 
-    def test_is_available_reports_true_when_the_model_is_present(self):
-        payload = {"models": [{"name": self.client.model}]}
+    def test_is_available_reports_true_when_the_model_is_listed(self):
+        payload = {"data": [{"id": self.client.model}]}
 
         with patch(
             GET_TARGET,
@@ -223,7 +315,7 @@ class ParseJsonCompletionTests(SimpleTestCase):
 
     def test_a_json_array_raises_response_error(self):
         with self.assertRaises(AIResponseError):
-            parse_json_completion("[1, 2, 3]")
+            parse_json_completion(json.dumps([1, 2, 3]))
 
     def test_a_non_string_raises_response_error(self):
         with self.assertRaises(AIResponseError):

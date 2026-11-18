@@ -27,11 +27,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from backend.apps.ai.clients import OllamaClient
+from backend.apps.ai.clients import GroqClient
 from backend.apps.ai.config import (
     AI_PROVIDER,
-    OLLAMA_BASE_URL,
-    OLLAMA_MODEL,
+    GROQ_BASE_URL,
+    GROQ_MODEL,
 )
 from backend.apps.ai.exceptions import (
     AIModelError,
@@ -191,8 +191,8 @@ class ItineraryGenerationView(APIView):
                 {
                     "success": False,
                     "message": (
-                        "The AI provider is unavailable. Please check that "
-                        "it is running and try again."
+                        "The AI provider is unavailable. Please try again "
+                        "shortly."
                     ),
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -247,7 +247,7 @@ class AIStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        client = OllamaClient()
+        client = GroqClient()
 
         return Response(
             {
@@ -255,8 +255,8 @@ class AIStatusView(APIView):
                 "message": "AI provider status retrieved successfully.",
                 "data": {
                     "provider": AI_PROVIDER,
-                    "model": OLLAMA_MODEL,
-                    "base_url": OLLAMA_BASE_URL,
+                    "model": GROQ_MODEL,
+                    "base_url": GROQ_BASE_URL,
                     "available": client.is_available(),
                 },
             },

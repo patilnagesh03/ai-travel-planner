@@ -1,7 +1,6 @@
-
-from .ollama_client import OllamaClient, parse_json_completion
+from .groq_client import GroqClient, parse_json_completion
 
 __all__ = [
-    "OllamaClient",
+    "GroqClient",
     "parse_json_completion",
 ]

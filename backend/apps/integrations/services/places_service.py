@@ -18,11 +18,17 @@ import logging
 
 from django.core.cache import cache
 
-from backend.apps.integrations.clients import OverpassClient
+from backend.apps.integrations.clients import NominatimClient, OverpassClient
 from backend.apps.integrations.config import (
     MAX_PLACES_PER_SEARCH,
     OVERPASS_QUERY_TIMEOUT,
     PLACES_CACHE_TIMEOUT,
+    PLACES_PROVIDER,
+)
+from backend.apps.integrations.exceptions import (
+    IntegrationError,
+    IntegrationTimeoutError,
+    IntegrationUnavailableError,
 )
 from backend.apps.integrations.schemas import (
     CATEGORY_SELECTORS,
@@ -78,9 +84,42 @@ class PlacesService:
 
             return cached_places
 
-        overpass_client = client or OverpassClient()
-
-        elements = overpass_client.fetch_elements(query)
+        if client is not None:
+            elements = client.fetch_elements(query)
+        elif PLACES_PROVIDER == "nominatim":
+            try:
+                elements = NominatimClient().fetch_elements_for_bbox(
+                    bbox=bbox,
+                    categories=categories,
+                    limit=effective_limit,
+                )
+            except (
+                IntegrationUnavailableError,
+                IntegrationTimeoutError,
+                IntegrationError,
+            ) as exc:
+                logger.warning(
+                    "Nominatim places provider failed (%s); falling back to Overpass.",
+                    exc,
+                )
+                elements = OverpassClient().fetch_elements(query)
+        else:
+            try:
+                elements = OverpassClient().fetch_elements(query)
+            except (
+                IntegrationUnavailableError,
+                IntegrationTimeoutError,
+                IntegrationError,
+            ) as exc:
+                logger.warning(
+                    "Overpass places provider failed (%s); falling back to Nominatim.",
+                    exc,
+                )
+                elements = NominatimClient().fetch_elements_for_bbox(
+                    bbox=bbox,
+                    categories=categories,
+                    limit=effective_limit,
+                )
 
         places = PlacesService.normalize_elements(
             elements,
@@ -88,7 +127,7 @@ class PlacesService:
         )
 
         logger.info(
-            "Overpass returned %s element(s) for the requested area; "
+            "Places provider returned %s element(s) for the requested area; "
             "%s place(s) kept after normalization.",
             len(elements),
             len(places),

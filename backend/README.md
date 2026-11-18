@@ -31,7 +31,7 @@ The application leverages Artificial Intelligence along with external services s
 * Budget-based Recommendations
 * Interest-based Suggestions
 * Travel Tips
-* Generated locally with Ollama (no API key, no cost, no data leaves the machine)
+* Generated with Groq (hosted open-weight models, OpenAI-compatible API)
 * See `backend/apps/ai/README.md`
 
 ### Travel Information (implemented)
@@ -102,8 +102,7 @@ The application leverages Artificial Intelligence along with external services s
 
 ## AI
 
-* Ollama (Local LLM)
-* OpenAI (Optional)
+* Groq (hosted LLM API, free tier available)
 ## External APIs
 
 * Open-Meteo — implemented, weather forecast, no key
@@ -140,7 +139,7 @@ backend/
 │   ├── expenses/            # trip expenses and budget summaries
 │   ├── notifications/       # in-app reminders and alerts
 │   ├── integrations/        # OpenStreetMap / Overpass places
-│   ├── ai/                  # Ollama itinerary generation
+│   ├── ai/                  # AI itinerary generation (Groq)
 │   ├── external_services/
 │   └── common/
 │
@@ -310,8 +309,8 @@ by hand.
 ## Integrations and AI
 
 * `OVERPASS_*`, `MAX_PLACES_PER_SEARCH`, `INTEGRATIONS_USER_AGENT`
-* `AI_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`,
-  `OLLAMA_TEMPERATURE`
+* `AI_PROVIDER`, `GROQ_API_KEY`, `GROQ_BASE_URL`, `GROQ_MODEL`,
+  `GROQ_TIMEOUT`, `GROQ_TEMPERATURE`
 
 `backend/.env` is ignored by git; only `backend/.env.example` is committed.
 

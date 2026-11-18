@@ -106,8 +106,8 @@ src/
 
 ## Known limitations
 
-- Place search and AI generation depend on the public Overpass API and a local
-  Ollama instance. When either is down the UI shows a retryable error and
+- Place search and AI generation depend on the public Overpass API and the
+  Groq API. When either is down the UI shows a retryable error and
   leaves existing data untouched.
 - Weather, currency and map tiles depend on Open-Meteo, Frankfurter and
   `tile.openstreetmap.org`. Each card reports its own failure without taking
