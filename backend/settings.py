@@ -15,20 +15,38 @@ from datetime import timedelta
 
 from decouple import config
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+from backend.environment import (
+    resolve_allowed_hosts,
+    resolve_cors_origins,
+    resolve_csrf_trusted_origins,
+    resolve_secret_key,
+    resolve_security_settings,
+)
+
+# The Django project directory (the `backend` package). The environment
+# file, uploaded media and collected static files all live here, next to
+# this file, rather than at the repository root.
+BASE_DIR = Path(__file__).resolve().parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# ==========================================================================
+# Core settings
+# ==========================================================================
+# Every value below can be overridden from the environment (or from
+# backend/.env). The defaults are the safe ones: DEBUG is off unless asked
+# for, and a production start refuses to run without a real secret key.
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ys3m^x$e2iz!29_sw9od$c3g_p1bzo9vvqi*q=o&hy=$6zy#ef'
+DEBUG = config("DEBUG", cast=bool, default=False)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = resolve_secret_key(
+    config("SECRET_KEY", default=""),
+    debug=DEBUG,
+)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = resolve_allowed_hosts(
+    config("ALLOWED_HOSTS", default=""),
+    debug=DEBUG,
+)
 
 
 # Application definition
@@ -41,12 +59,28 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Third-party apps
+    "corsheaders",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+
     #Local apps
     'backend.apps.accounts',
+    'backend.apps.authentication',
+    'backend.apps.trips',
+    'backend.apps.itinerary',
+    'backend.apps.expenses',
+    'backend.apps.notifications',
+    'backend.apps.integrations',
+    'backend.apps.ai',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Must sit above CommonMiddleware so CORS headers are added to every
+    # response, including the ones other middleware generate.
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -121,10 +155,157 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# ==========================================================================
+# Logging
+# ==========================================================================
+# Application logs go to the console (stderr), where the WSGI server or the
+# hosting platform's log collector picks them up. Extra handlers (JSON, a
+# file, an error reporter) can be added here without touching app code.
 
-STATIC_URL = 'static/'
+LOG_LEVEL = config("LOG_LEVEL", default="INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        # Access logging belongs to the WSGI server or reverse proxy. Keep
+        # client errors (expired tokens, scanners) out of the app log while
+        # still reporting server errors.
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
+
+
+# ==========================================================================
+# Static and media files
+# ==========================================================================
+# `static/` holds files that ship with the project. `staticfiles/` is where
+# `collectstatic` gathers them for production to serve. `media/` holds user
+# uploads (profile pictures) and is never committed.
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_DIRS = [
+    directory
+    for directory in [BASE_DIR / "static"]
+    if directory.is_dir()
+]
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
+# ==========================================================================
+# CORS
+# ==========================================================================
+# The React frontend is served from a different origin, so the API has to
+# name it explicitly. There is deliberately no wildcard option: allowing
+# every origin would let any website call this API from a visitor's browser.
+
+CORS_ALLOWED_ORIGINS = resolve_cors_origins(
+    config(
+        "CORS_ALLOWED_ORIGINS",
+        default=config("FRONTEND_URL", default=""),
+    ),
+    debug=DEBUG,
+)
+
+CORS_ALLOW_CREDENTIALS = config(
+    "CORS_ALLOW_CREDENTIALS",
+    cast=bool,
+    default=False,
+)
+
+
+# ==========================================================================
+# Deployment security
+# ==========================================================================
+# The defaults follow DEBUG: enabled in production, disabled locally so the
+# plain-HTTP development server keeps working. Every value can be overridden
+# from the environment, which matters when a reverse proxy terminates TLS or
+# when HSTS is rolled out gradually.
+
+_SECURITY = resolve_security_settings(DEBUG)
+
+SECURE_SSL_REDIRECT = config(
+    "SECURE_SSL_REDIRECT",
+    cast=bool,
+    default=_SECURITY["SECURE_SSL_REDIRECT"],
+)
+
+SESSION_COOKIE_SECURE = config(
+    "SESSION_COOKIE_SECURE",
+    cast=bool,
+    default=_SECURITY["SESSION_COOKIE_SECURE"],
+)
+
+CSRF_COOKIE_SECURE = config(
+    "CSRF_COOKIE_SECURE",
+    cast=bool,
+    default=_SECURITY["CSRF_COOKIE_SECURE"],
+)
+
+SECURE_HSTS_SECONDS = config(
+    "SECURE_HSTS_SECONDS",
+    cast=int,
+    default=_SECURITY["SECURE_HSTS_SECONDS"],
+)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    cast=bool,
+    default=_SECURITY["SECURE_HSTS_INCLUDE_SUBDOMAINS"],
+)
+
+SECURE_HSTS_PRELOAD = config(
+    "SECURE_HSTS_PRELOAD",
+    cast=bool,
+    default=_SECURITY["SECURE_HSTS_PRELOAD"],
+)
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+
+# Trust ``X-Forwarded-Proto`` only when a reverse proxy in front of Django
+# terminates TLS. Trusting the header unconditionally would let a direct
+# client pretend its connection is secure.
+TRUST_PROXY_HEADERS = config(
+    "TRUST_PROXY_HEADERS",
+    cast=bool,
+    default=False,
+)
+
+if TRUST_PROXY_HEADERS:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Django's admin and session flows need to know which origins may submit
+# unsafe requests. The API itself is JWT based, so this does not affect it.
+CSRF_TRUSTED_ORIGINS = resolve_csrf_trusted_origins(
+    config("CSRF_TRUSTED_ORIGINS", default=""),
+    CORS_ALLOWED_ORIGINS,
+)
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -142,4 +323,214 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=config("REFRESH_TOKEN_LIFETIME", cast=int)
     ),
+
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+
+# ==========================================================================
+# External Integrations
+# ==========================================================================
+# OpenStreetMap / Overpass API.
+#
+# The Overpass usage policy asks every client to identify itself with a
+# meaningful User-Agent that offers a way to reach the operator. Replace the
+# default below with a contact address you control.
+
+OVERPASS_API_URL = config(
+    "OVERPASS_API_URL",
+    default="https://overpass-api.de/api/interpreter",
+)
+
+# Client-side transport timeouts (seconds) applied by `requests`.
+OVERPASS_CONNECT_TIMEOUT = config(
+    "OVERPASS_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+OVERPASS_READ_TIMEOUT = config(
+    "OVERPASS_READ_TIMEOUT",
+    cast=int,
+    default=30,
+)
+
+# Server-side query budget (seconds) embedded in the Overpass query itself.
+OVERPASS_QUERY_TIMEOUT = config(
+    "OVERPASS_QUERY_TIMEOUT",
+    cast=int,
+    default=20,
+)
+
+# Upper bound on the number of places returned by a single search.
+MAX_PLACES_PER_SEARCH = config(
+    "MAX_PLACES_PER_SEARCH",
+    cast=int,
+    default=20,
+)
+
+# Force the IPv4 address family when talking to the Overpass provider.
+#
+# Some networks publish IPv6 addresses for a host but cannot route IPv6
+# traffic, which makes every request hang until it times out. Turning this
+# on works around that. It is off by default because forcing IPv4 would
+# break a network that is genuinely IPv6-only.
+OVERPASS_IPV4_ONLY = config(
+    "OVERPASS_IPV4_ONLY",
+    cast=bool,
+    default=False,
+)
+
+INTEGRATIONS_USER_AGENT = config(
+    "INTEGRATIONS_USER_AGENT",
+    default=(
+        "AITravelPlanner/1.0 "
+        "(nageshpatil7311@gmail.com)"
+    ),
+)
+
+
+# --------------------------------------------------------------------------
+# Weather (Open-Meteo)
+# --------------------------------------------------------------------------
+# Open-Meteo needs no API key and no account. The public endpoint is free
+# for non-commercial use, which is why it was chosen over providers that
+# require a key for a local development setup.
+WEATHER_API_URL = config(
+    "WEATHER_API_URL",
+    default="https://api.open-meteo.com/v1/forecast",
+)
+
+WEATHER_CONNECT_TIMEOUT = config(
+    "WEATHER_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+WEATHER_READ_TIMEOUT = config(
+    "WEATHER_READ_TIMEOUT",
+    cast=int,
+    default=15,
+)
+
+# Open-Meteo publishes at most 16 days of daily forecast, so this is both
+# our window and the provider's limit. Asking for more is not possible.
+WEATHER_FORECAST_DAYS = config(
+    "WEATHER_FORECAST_DAYS",
+    cast=int,
+    default=16,
+)
+
+# A daily forecast changes slowly; 15 minutes is short enough to stay
+# useful and long enough to stop a page refresh from hitting the provider.
+WEATHER_CACHE_TIMEOUT = config(
+    "WEATHER_CACHE_TIMEOUT",
+    cast=int,
+    default=900,
+)
+
+
+# --------------------------------------------------------------------------
+# Currency (Frankfurter)
+# --------------------------------------------------------------------------
+# Frankfurter publishes European Central Bank reference rates. It also
+# needs no key. Rates are published once per working day, so an hour of
+# caching is more than fresh enough.
+CURRENCY_API_URL = config(
+    "CURRENCY_API_URL",
+    default="https://api.frankfurter.dev/v1",
+)
+
+CURRENCY_CONNECT_TIMEOUT = config(
+    "CURRENCY_CONNECT_TIMEOUT",
+    cast=int,
+    default=5,
+)
+
+CURRENCY_READ_TIMEOUT = config(
+    "CURRENCY_READ_TIMEOUT",
+    cast=int,
+    default=10,
+)
+
+CURRENCY_CACHE_TIMEOUT = config(
+    "CURRENCY_CACHE_TIMEOUT",
+    cast=int,
+    default=3600,
+)
+
+# Upper bound on how many currencies one request may ask for. The
+# converter only ever needs a handful, and a cap keeps the provider call
+# (and the cache key) small.
+MAX_CURRENCY_SYMBOLS = config(
+    "MAX_CURRENCY_SYMBOLS",
+    cast=int,
+    default=12,
+)
+
+
+# ==========================================================================
+# Caching
+# ==========================================================================
+# Django's built-in LocMemCache. It needs no extra service, so there is no
+# Redis in this project.
+#
+# Note that LocMemCache is *per process*: with several workers each worker
+# keeps its own copy of the cache. That is perfectly fine for reducing the
+# load we put on shared public infrastructure, it just means the hit rate
+# is lower than a shared cache would give.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "ai-travel-planner",
+    }
+}
+
+# How long (seconds) a place search result is reused before the provider is
+# called again. Set to 0 to disable caching entirely.
+PLACES_CACHE_TIMEOUT = config(
+    "PLACES_CACHE_TIMEOUT",
+    cast=int,
+    default=600,
+)
+
+
+# ==========================================================================
+# AI Configuration
+# ==========================================================================
+# Ollama runs the model locally, so there is no API key and no cost.
+#
+# The generation timeout is deliberately much larger than the place search
+# timeouts. Asking a local model to plan a multi-day trip takes far longer
+# than asking Overpass for a list of nearby places, and the two budgets have
+# nothing to do with each other.
+
+AI_PROVIDER = config(
+    "AI_PROVIDER",
+    default="ollama",
+)
+
+OLLAMA_BASE_URL = config(
+    "OLLAMA_BASE_URL",
+    default="http://localhost:11434",
+)
+
+OLLAMA_MODEL = config(
+    "OLLAMA_MODEL",
+    default="llama3.1",
+)
+
+OLLAMA_TIMEOUT = config(
+    "OLLAMA_TIMEOUT",
+    cast=int,
+    default=120,
+)
+
+# Lower values give more predictable, more conservative itineraries.
+OLLAMA_TEMPERATURE = config(
+    "OLLAMA_TEMPERATURE",
+    cast=float,
+    default=0.4,
+)

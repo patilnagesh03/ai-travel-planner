@@ -1,0 +1,200 @@
+import logging
+from django.http import Http404
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from backend.apps.itinerary.serializers import ItinerarySerializer
+from backend.apps.itinerary.services.itinerary_service import (
+    ItineraryService,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+class ItineraryView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, trip_id):
+
+        try:
+            serializer = ItinerarySerializer(
+                data=request.data,
+            )
+
+            serializer.is_valid(
+                raise_exception=True,
+            )
+
+            itinerary = ItineraryService.create_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+                validated_data=serializer.validated_data,
+            )
+
+            response_serializer = ItinerarySerializer(
+                itinerary,
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": (
+                        "Itinerary created successfully."
+                    ),
+                    "data": response_serializer.data,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        except ValueError as exc:
+            return Response(
+                {
+                    "success": False,
+                    "message": str(exc),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except ValidationError:
+            raise
+
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while creating itinerary."
+            )
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Something went wrong while creating "
+                        "the itinerary."
+                    ),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+    def get(self, request, trip_id):
+
+        try:
+            itinerary = ItineraryService.get_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+            )
+
+            serializer = ItinerarySerializer(
+                itinerary,
+            )
+
+            return Response(
+                {
+                    "success": True,
+                    "message": (
+                        "Itinerary retrieved successfully."
+                    ),
+                    "data": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while retrieving itinerary."
+            )
+
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Something went wrong while retrieving "
+                        "the itinerary."
+                    ),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+    def patch(self, request, trip_id):
+        itinerary = ItineraryService.get_itinerary(
+            user=request.user,
+            trip_id=trip_id,
+        )
+
+        serializer = ItinerarySerializer(
+            itinerary,
+            data=request.data,
+            partial=True,
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            updated_itinerary = ItineraryService.update_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+                validated_data=serializer.validated_data,
+            )
+
+            response_serializer = ItinerarySerializer(
+                updated_itinerary
+            )
+
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_200_OK,
+            )
+
+        except Http404:
+            # A missing trip or itinerary. Re-raised so that DRF turns it
+            # into a proper 404 response instead of a generic 500.
+            raise
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while updating itinerary."
+            )
+
+            return Response(
+                {"detail": "Something went wrong."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+    def delete(self, request, trip_id):
+        try:
+            ItineraryService.delete_itinerary(
+                user=request.user,
+                trip_id=trip_id,
+            )
+
+            return Response(
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        
+        except Http404:
+            raise
+
+        except Exception:
+            logger.exception(
+                "Unexpected error while deleting itinerary."
+            )
+
+            return Response(
+                {"detail": "Something went wrong."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
