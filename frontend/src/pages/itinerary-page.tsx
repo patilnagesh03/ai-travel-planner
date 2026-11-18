@@ -438,7 +438,7 @@ export function ItineraryPage() {
                   </h2>
                   <p className="max-w-2xl text-sm text-muted-foreground">
                     The planner finds real places around {trip.destination},
-                    asks the local model to arrange them, and drops anything it
+                    asks the AI model to arrange them, and drops anything it
                     cannot verify. You can edit every activity afterwards.
                   </p>
                 </div>
@@ -464,8 +464,9 @@ export function ItineraryPage() {
 
               {aiStatus && !aiStatus.available ? (
                 <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-800">
-                  The AI provider is not reachable. Start Ollama, or create an
-                  itinerary manually and add activities yourself.
+                  The AI provider is not reachable. Check the server's API
+                  key, or create an itinerary manually and add activities
+                  yourself.
                 </p>
               ) : null}
 

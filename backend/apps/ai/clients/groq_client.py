@@ -1,10 +1,10 @@
 """
-HTTP client for a local Ollama server.
+HTTP client for the Groq chat completions API.
 
-Ollama exposes a small HTTP API. The two endpoints we care about are:
+Groq serves open-weight models over an OpenAI-compatible endpoint:
 
-* ``POST /api/generate`` - run a prompt and get a completion back.
-* ``GET  /api/tags``     - list the models that have been pulled.
+* ``POST /chat/completions`` - run a prompt and get a completion back.
+* ``GET  /models``           - list the models this key may use.
 
 This client is only responsible for transport. It knows nothing about
 itineraries, places or prompts. The raw model output is returned as a
@@ -17,10 +17,11 @@ import logging
 import requests
 
 from backend.apps.ai.config import (
-    OLLAMA_BASE_URL,
-    OLLAMA_MODEL,
-    OLLAMA_TEMPERATURE,
-    OLLAMA_TIMEOUT,
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
+    GROQ_MODEL,
+    GROQ_TEMPERATURE,
+    GROQ_TIMEOUT,
 )
 from backend.apps.ai.exceptions import (
     AIModelError,
@@ -33,26 +34,36 @@ from backend.apps.ai.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-class OllamaClient:
-    """Thin, synchronous HTTP client for a local Ollama server."""
+# Groq's JSON mode returns the object in `message.content`, but the model is
+# free to keep reasoning in a separate field. A hard ceiling keeps one
+# generation from running away with the free-tier token budget.
+MAX_COMPLETION_TOKENS = 8192
+
+
+class GroqClient:
+    """Thin, synchronous HTTP client for the Groq API."""
 
     def __init__(
         self,
+        api_key=None,
         base_url=None,
         model=None,
         timeout=None,
         temperature=None,
     ):
-        self.base_url = (base_url or OLLAMA_BASE_URL).rstrip("/")
-        self.model = model or OLLAMA_MODEL
+        self.api_key = GROQ_API_KEY if api_key is None else api_key
+
+        self.base_url = (base_url or GROQ_BASE_URL).rstrip("/")
+
+        self.model = model or GROQ_MODEL
 
         # `None` means "use the configured default".
         self.timeout = (
-            OLLAMA_TIMEOUT if timeout is None else timeout
+            GROQ_TIMEOUT if timeout is None else timeout
         )
 
         self.temperature = (
-            OLLAMA_TEMPERATURE
+            GROQ_TEMPERATURE
             if temperature is None
             else temperature
         )
@@ -65,35 +76,64 @@ class OllamaClient:
         layer that knows what a valid answer looks like.
         """
 
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "format": "json",
-            "stream": False,
-            "options": {
-                "temperature": self.temperature,
-            },
-        }
+        if not self.api_key:
+            logger.warning("No Groq API key is configured.")
+
+            raise AIModelError(
+                "No AI API key is configured. Set GROQ_API_KEY."
+            )
+
+        messages = []
 
         if system:
-            payload["system"] = system
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system,
+                }
+            )
 
-        response = self._post("/api/generate", payload)
+        messages.append(
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        )
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+            "response_format": {"type": "json_object"},
+            "max_completion_tokens": MAX_COMPLETION_TOKENS,
+            "stream": False,
+        }
+
+        response = self._post("/chat/completions", payload)
 
         data = self._parse_json_object(response)
 
-        if "response" not in data:
+        choices = data.get("choices")
+
+        if not isinstance(choices, list) or not choices:
             logger.warning(
-                "Ollama response did not contain a `response` field."
+                "Groq response did not contain any `choices`."
             )
 
             raise AIResponseError(
                 "The AI provider returned an unexpected response."
             )
 
-        completion = data["response"]
+        message = choices[0].get("message")
 
-        if not isinstance(completion, str):
+        if not isinstance(message, dict):
+            raise AIResponseError(
+                "The AI provider returned an unexpected response."
+            )
+
+        completion = message.get("content")
+
+        if not isinstance(completion, str) or not completion.strip():
             raise AIResponseError(
                 "The AI provider returned an unexpected response."
             )
@@ -101,13 +141,13 @@ class OllamaClient:
         return completion
 
     def list_models(self):
-        """Return the names of the models available on the server."""
+        """Return the ids of the models this key may use."""
 
-        response = self._get("/api/tags")
+        response = self._get("/models")
 
         data = self._parse_json_object(response)
 
-        models = data.get("models")
+        models = data.get("data")
 
         if not isinstance(models, list):
             raise AIResponseError(
@@ -115,24 +155,26 @@ class OllamaClient:
             )
 
         return [
-            model.get("name")
+            model.get("id")
             for model in models
-            if isinstance(model, dict) and model.get("name")
+            if isinstance(model, dict) and model.get("id")
         ]
 
     def is_available(self):
-        """Return True when the server is up and the model is present.
+        """Return True when the API key works and the model is listed.
 
         This is used by the diagnostics endpoint so that a developer can see
-        at a glance whether Ollama is running and whether the configured
-        model has been pulled.
+        at a glance whether the key and model are usable.
         """
+
+        if not self.api_key:
+            return False
 
         try:
             available = self.list_models()
         except (AIProviderUnavailableError, AIProviderTimeoutError):
             return False
-        except AIResponseError:
+        except (AIResponseError, AIModelError):
             return False
 
         return self.model in available
@@ -154,7 +196,7 @@ class OllamaClient:
 
         except requests.exceptions.Timeout as exc:
             logger.warning(
-                "Ollama did not finish within %ss.",
+                "Groq did not finish within %ss.",
                 self.timeout,
             )
 
@@ -169,7 +211,7 @@ class OllamaClient:
             )
 
             raise AIProviderUnavailableError(
-                "The AI provider could not be reached. Is Ollama running?"
+                "The AI provider could not be reached."
             ) from exc
 
         except requests.exceptions.RequestException as exc:
@@ -202,7 +244,7 @@ class OllamaClient:
 
         except requests.exceptions.ConnectionError as exc:
             raise AIProviderUnavailableError(
-                "The AI provider could not be reached. Is Ollama running?"
+                "The AI provider could not be reached."
             ) from exc
 
         except requests.exceptions.RequestException as exc:
@@ -217,6 +259,7 @@ class OllamaClient:
     def _build_headers(self):
         return {
             "Accept": "application/json",
+            "Authorization": "Bearer {key}".format(key=self.api_key),
             "Content-Type": "application/json",
         }
 
@@ -226,16 +269,36 @@ class OllamaClient:
 
         status_code = response.status_code
 
+        if status_code in (401, 403):
+            logger.warning(
+                "The AI provider rejected the API key (HTTP %s).",
+                status_code,
+            )
+
+            raise AIModelError(
+                "The AI provider rejected the API key. "
+                "Check GROQ_API_KEY."
+            )
+
         if status_code == 404:
-            # Ollama answers 404 when the model has not been pulled.
             logger.warning(
                 "The AI provider does not know the model '%s'.",
                 self.model,
             )
 
             raise AIModelError(
-                "The configured AI model is not available. "
-                "Pull it first with `ollama pull`."
+                "The configured AI model is not available on this "
+                "account. Check GROQ_MODEL."
+            )
+
+        if status_code == 429:
+            logger.warning(
+                "The AI provider rate limited the request (HTTP 429)."
+            )
+
+            raise AIProviderUnavailableError(
+                "The AI provider is rate limiting requests. "
+                "Please try again shortly."
             )
 
         if status_code >= 500:
@@ -284,8 +347,8 @@ class OllamaClient:
 def parse_json_completion(completion):
     """Parse a completion that the model was asked to make JSON.
 
-    Local models often wrap JSON in a markdown code fence, so that is
-    stripped before parsing.
+    Models sometimes wrap JSON in a markdown code fence, so that is stripped
+    before parsing.
     """
 
     if not isinstance(completion, str):
@@ -323,4 +386,4 @@ def parse_json_completion(completion):
     return payload
 
 
-__all__ = ["OllamaClient", "parse_json_completion"]
+__all__ = ["GroqClient", "parse_json_completion"]

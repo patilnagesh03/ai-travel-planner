@@ -19,6 +19,8 @@ interchangeable:
 from django.conf import settings
 
 
+PLACES_PROVIDER = getattr(settings, "PLACES_PROVIDER", "nominatim")
+
 OVERPASS_API_URL = settings.OVERPASS_API_URL
 
 OVERPASS_CONNECT_TIMEOUT = settings.OVERPASS_CONNECT_TIMEOUT

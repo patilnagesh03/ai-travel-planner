@@ -2,8 +2,9 @@
 
 AI-assisted itinerary generation.
 
-The provider is **Ollama**, which runs the model locally. There is no API
-key, no cost, and no trip data leaving the machine.
+The provider is **Groq**, which serves open-weight models over an
+OpenAI-compatible API. A Groq account and API key are required; the key
+lives in `backend/.env`, which git ignores.
 
 ---
 
@@ -13,7 +14,7 @@ key, no cost, and no trip data leaving the machine.
 backend/apps/ai/
 ├── config.py
 ├── clients/
-│   ├── ollama_client.py        # HTTP transport for the Ollama server
+│   ├── groq_client.py          # HTTP transport for the Groq API
 │   └── ...
 ├── schemas/
 │   └── itinerary_schema.py     # The validated plan structures
@@ -37,34 +38,44 @@ backend/apps/ai/
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `AI_PROVIDER` | `ollama` | Which provider to use. |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Where the Ollama server is. |
-| `OLLAMA_MODEL` | `llama3.1` | The model to use. |
-| `OLLAMA_TIMEOUT` | `120` | Seconds allowed for one generation. |
-| `OLLAMA_TEMPERATURE` | `0.4` | Lower is more predictable. |
+| `AI_PROVIDER` | `groq` | Which provider to use. |
+| `GROQ_API_KEY` | *(empty)* | Your Groq API key. Required. |
+| `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | The API base URL. |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | The model to use. |
+| `GROQ_TIMEOUT` | `60` | Seconds allowed for one generation. |
+| `GROQ_TEMPERATURE` | `0.4` | Lower is more predictable. |
 
-### Setting up Ollama
+### Setting up Groq
 
-```bash
-# Install Ollama, then:
-ollama serve
-ollama pull llama3.1
-```
+1. Create a key at <https://console.groq.com/keys>.
+2. Put it in `backend/.env` — never in a committed file:
 
-Check that the model is present:
+   ```dotenv
+   AI_PROVIDER=groq
+   GROQ_API_KEY=gsk_...
+   GROQ_MODEL=openai/gpt-oss-120b
+   ```
 
-```bash
-curl http://localhost:11434/api/tags
-```
+3. Check that the key and model work:
 
-`GET /api/v1/ai/status/` reports the same thing from inside the app.
+   ```bash
+   curl -H "Authorization: Bearer $GROQ_API_KEY" \
+     https://api.groq.com/openai/v1/models
+   ```
 
-### The timeout is deliberately long
+`GET /api/v1/ai/status/` reports the same thing from inside the app,
+including whether the configured model is listed for your key.
 
-`OLLAMA_TIMEOUT` (120s) is much larger than the place search timeouts
-(5s connect / 30s read). Asking a local model to plan a multi-day trip
-takes far longer than asking Overpass for a list of nearby places. The two
-budgets are unrelated and should not be tuned together.
+Free-tier models change over time. Any chat model your key can see in
+`/models` can be used by setting `GROQ_MODEL`; the response format below
+requires one that supports JSON mode.
+
+### The timeout is deliberately generous
+
+`GROQ_TIMEOUT` (60s) is much larger than the place search timeouts
+(5s connect / 30s read). A full multi-day itinerary is a long completion,
+and the two budgets are unrelated. In practice a generation takes a few
+seconds.
 
 ---
 
@@ -127,8 +138,8 @@ Response:
 
 ### `GET /api/v1/ai/status/`
 
-Reports the configured provider and whether the model is actually
-available. Useful while setting things up.
+Reports the configured provider and whether the key and model are
+actually usable. Useful while setting things up.
 
 ---
 
@@ -147,7 +158,7 @@ available. Useful while setting things up.
   PromptService.build_prompt()    ──►  the prompt
           │
           ▼
-  OllamaClient.generate()        ──►  raw model output
+  GroqClient.generate()          ──►  raw model output
           │
           ▼
   validate_plan()                 ──►  a validated plan
@@ -208,7 +219,9 @@ the user a confirmation step without needing a "draft itinerary" model.
 | Trip already has an itinerary | `409` | Send `replace: true`. |
 | Places provider rate limited | `429` | (+ `Retry-After`) |
 | Places provider unavailable | `503` | Come back later. |
-| Model not pulled | `503` | The message says how to fix it. |
+| Missing or rejected API key | `503` | The message names `GROQ_API_KEY`. |
+| Unknown model | `503` | The message names `GROQ_MODEL`. |
+| Groq rate limited | `503` | Free-tier quota; try again shortly. |
 | Model timed out | `504` | The model was too slow. |
 | Model produced no usable plan | `502` | The raw output stays in the server log. |
 
@@ -219,17 +232,18 @@ fails, the output is written to the server log where it can be diagnosed.
 
 ## Limitations
 
-* **Quality depends on the model.** A small local model will produce
-  plainer itineraries than a large one. The validation guarantees the
-  output is *safe*, not that it is *good*.
+* **Quality depends on the model.** The validation guarantees the output
+  is *safe*, not that it is *good*.
 * **The place pool is small.** Generation uses the same 20-place search
   limit as the places API, so a long trip has a limited palette. The
   model may reuse a place on different days.
-* **A local model can be slow.** On modest hardware a generation can take
-  a minute. That is why the timeout is generous and the status is `504`
-  rather than `500`.
+* **Generation needs network access and quota.** The free tier is rate
+  limited; the app turns that into a readable `503` rather than a broken
+  page.
 * **No streaming.** The client waits for the whole plan.
-* **Ollama must be running.** The app cannot start it for you.
+* **Trip data leaves the machine.** Unlike a local model, the prompt
+  (destination, dates, budget and the list of nearby places) is sent to
+  Groq. Do not enable this for data you cannot share with a third party.
 
 ---
 
@@ -239,38 +253,19 @@ fails, the output is written to the server log where it can be diagnosed.
 python manage.py test backend.apps.ai
 ```
 
-The model and the places provider are always mocked, so the suite does
-not need Ollama running and does not touch the public Overpass instance.
+The model and the places provider are always mocked, so the suite needs
+no API key and does not touch the public Overpass instance.
 
 ### Opt-in live tests
 
-Two tests talk to a real Ollama server. They are skipped unless asked for:
+`test_live_groq` talks to the real Groq API. It is skipped unless asked
+for:
 
-```bash
-$env:OLLAMA_LIVE_TEST = "1"
-python manage.py test backend.apps.ai.tests.test_live_ollama
+```powershell
+$env:GROQ_LIVE_TEST = "1"
+python manage.py test backend.apps.ai.tests.test_live_groq
 ```
 
-They create and destroy Django's throwaway `test_travel_planner_db`, so
-your development data is never touched.
-
-### Live verification results
-
-Verified end to end against a real Ollama server at the configured
-`OLLAMA_BASE_URL`, using a real 6-day trip and real Overpass places:
-
-* the configured model was present and reachable;
-* 6 days / 30 activities were generated;
-* every date fell inside the trip window;
-* every activity resolved to a real place with coordinates;
-* an invented `node/999999999999` was dropped rather than persisted.
-
-Models verified: `qwen2.5:0.5b` and `llama3.2:1b`.
-
-**`llama3.1` (the default) could not be verified here.** Pulling the 4.7 GB
-weights from `registry.ollama.ai` repeatedly failed: the 16-part download
-stalled with connection resets, and a single resumable stream did no
-better. This is a **network limitation of the machine, not a defect in the
-app** — the generation path is model-agnostic and was verified with two
-real models above. On a normal connection, `ollama pull llama3.1` and
-rerunning the live test is all that is needed to close it.
+It creates and destroys Django's throwaway test database, so your
+development data is never touched. It does spend a small amount of
+free-tier quota.

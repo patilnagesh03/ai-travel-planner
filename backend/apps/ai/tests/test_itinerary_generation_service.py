@@ -23,8 +23,8 @@ from backend.apps.itinerary.models import Itinerary, ItineraryItem
 from backend.apps.trips.models import Trip
 
 
-class FakeOllamaClient:
-    """Stands in for the Ollama client."""
+class FakeAIClient:
+    """Stands in for the AI client."""
 
     def __init__(self, completion):
         self.completion = completion
@@ -339,7 +339,7 @@ class GenerationServiceTests(TestCase):
         self.places = [make_place("node/1", "Cubbon Park")]
 
     def test_generate_persists_the_plan(self):
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=2)),
         )
 
@@ -369,7 +369,7 @@ class GenerationServiceTests(TestCase):
         self.assertEqual(items[1].order, 1)
 
     def test_generated_items_carry_the_place_location(self):
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=1)),
         )
 
@@ -390,7 +390,7 @@ class GenerationServiceTests(TestCase):
         self.assertEqual(item.start_time, datetime(2026, 1, 1, 9, 0).time())
 
     def test_dry_run_does_not_persist_anything(self):
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=2)),
         )
 
@@ -414,7 +414,7 @@ class GenerationServiceTests(TestCase):
             title="Existing Itinerary",
         )
 
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=2)),
         )
 
@@ -436,7 +436,7 @@ class GenerationServiceTests(TestCase):
             title="Existing Itinerary",
         )
 
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=2)),
         )
 
@@ -468,7 +468,7 @@ class GenerationServiceTests(TestCase):
             order=1,
         )
 
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=2)),
         )
 
@@ -488,7 +488,7 @@ class GenerationServiceTests(TestCase):
         self.assertNotIn("Old Activity", titles)
 
     def test_the_prompt_includes_the_places(self):
-        client = FakeOllamaClient(
+        client = FakeAIClient(
             json.dumps(raw_plan(days=1)),
         )
 

@@ -28,7 +28,7 @@ from datetime import datetime, time, timedelta
 
 from django.db import transaction
 
-from backend.apps.ai.clients import OllamaClient, parse_json_completion
+from backend.apps.ai.clients import GroqClient, parse_json_completion
 from backend.apps.ai.exceptions import (
     AIResponseError,
     AIValidationError,
@@ -83,9 +83,9 @@ class ItineraryGenerationService:
             places=places,
         )
 
-        ollama_client = client or OllamaClient()
+        ai_client = client or GroqClient()
 
-        completion = ollama_client.generate(
+        completion = ai_client.generate(
             prompt=prompt,
             system=PromptService.build_system_prompt(),
         )

@@ -1,12 +1,12 @@
 """
 Configuration for the AI provider.
 
-The AI layer talks to Ollama by default. Ollama runs locally, which means
-no API key, no cost and no data leaving the machine.
+The AI layer talks to Groq, which serves open-weight models over an
+OpenAI-compatible API. An API key is required, and every request leaves the
+machine, so the key must never be committed.
 
-The generation timeout is deliberately much larger than the place search
-timeouts. Asking a local model to plan a multi-day trip takes far longer
-than asking Overpass for a list of nearby places, and the two budgets have
+The generation timeout is deliberately larger than the place search
+timeouts. A full itinerary is a long completion, and the two budgets have
 nothing to do with each other.
 """
 
@@ -15,22 +15,24 @@ from django.conf import settings
 
 AI_PROVIDER = settings.AI_PROVIDER
 
-OLLAMA_BASE_URL = settings.OLLAMA_BASE_URL
+GROQ_API_KEY = settings.GROQ_API_KEY
 
-OLLAMA_MODEL = settings.OLLAMA_MODEL
+GROQ_BASE_URL = settings.GROQ_BASE_URL
+
+GROQ_MODEL = settings.GROQ_MODEL
 
 # How long (seconds) we wait for the model to finish a single generation.
-# Local models on modest hardware can take a while.
-OLLAMA_TIMEOUT = settings.OLLAMA_TIMEOUT
+GROQ_TIMEOUT = settings.GROQ_TIMEOUT
 
 # Lower values give more predictable, more conservative itineraries.
-OLLAMA_TEMPERATURE = settings.OLLAMA_TEMPERATURE
+GROQ_TEMPERATURE = settings.GROQ_TEMPERATURE
 
 
 __all__ = [
     "AI_PROVIDER",
-    "OLLAMA_BASE_URL",
-    "OLLAMA_MODEL",
-    "OLLAMA_TIMEOUT",
-    "OLLAMA_TEMPERATURE",
+    "GROQ_API_KEY",
+    "GROQ_BASE_URL",
+    "GROQ_MODEL",
+    "GROQ_TIMEOUT",
+    "GROQ_TEMPERATURE",
 ]
